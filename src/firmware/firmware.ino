@@ -38,11 +38,32 @@ const double CONST_CONV_CM = 0.01723;
 //{
   
 //}
+enum state_t { 
+  STATE_WAITING_FOR_TRAINING, 
+  STATE_READY_FOR_TRAINING, 
+  STATE_TRAINING_IN_PROGRESS, 
+  STATE_PAUSED_TRAINING, 
+  STATE_TRAINING_FINISHED
+};
 
+enum event_t { 
+  EVENT_TRAINING_RECEIVED, 
+  EVENT_TRAINING_STARTED, 
+  EVENT_TRAINING_PAUSED, 
+  EVENT_TRAINING_RESUMED, 
+  EVENT_TRAINING_CONCLUDED, 
+  EVENT_TRAINING_CANCELLED, 
+  EVENT_TRAINING_RESTARTED, 
+  EVENT_CONTINUE,
+  EVENT_MONITORING_TRAINING
+};
+event_t currentEvent; 
+state_t currentState;
 
-void setup()
-{
-    // Acá puntualmente NO se inicializan los pines de los sensores de movimiento,
+ 
+
+void do_init() {
+  // Acá puntualmente NO se inicializan los pines de los sensores de movimiento,
     // porque la funcion que los maneja los va mapeando dinamicamente como input y output
     pinMode(TRAINING_CONTROL_PIN, INPUT);
     pinMode(HALL_SENSOR_PIN, INPUT);
@@ -59,6 +80,105 @@ void setup()
 
     // TOMA LA PRIMERA MEDICION DE TIEMPO
     TIEMPO_ANTERIOR = millis();
+
+    //Inicializo el primer estado
+    currentState = STATE_WAITING_FOR_TRAINING;
+}
+
+
+void setup()
+{
+    do_init();
+}
+
+void get_event(){
+
+}
+
+
+
+void state_machine(){
+  get_event();
+
+  switch(currentState){
+    case STATE_WAITING_FOR_TRAINING:
+      switch(currentEvent){
+        case EVENT_TRAINING_RECEIVED:
+          currentState = STATE_READY_FOR_TRAINING;
+          break;
+        case EVENT_CONTINUE:
+          currentState = STATE_WAITING_FOR_TRAINING;
+          break;
+        default: 
+          Serial.println("EVENTO_DESCONOCIDO");
+          break;
+      }
+      break;
+    case STATE_READY_FOR_TRAINING:
+      switch(currentEvent){
+        case EVENT_TRAINING_STARTED:
+          currentState = STATE_TRAINING_IN_PROGRESS;
+          break;
+        case EVENT_CONTINUE:
+          currentState = STATE_READY_FOR_TRAINING;
+          break;
+        default:
+          Serial.println("EVENTO_DESCONOCIDO");
+          break;
+      }
+      break;
+    case STATE_TRAINING_IN_PROGRESS:
+      switch(currentEvent){
+        case EVENT_TRAINING_CONCLUDED:
+          currentState = STATE_TRAINING_FINISHED;
+          break;
+        case EVENT_TRAINING_PAUSED:
+          currentState = STATE_PAUSED_TRAINING;
+          break;
+        case EVENT_TRAINING_CANCELLED:
+          currentState = STATE_TRAINING_FINISHED;
+          break;
+        case EVENT_MONITORING_TRAINING:
+          currentState = STATE_TRAINING_IN_PROGRESS;
+          break;
+        default:
+          Serial.println("EVENTO_DESCONOCIDO");
+          break;
+      }
+      break;
+    case STATE_PAUSED_TRAINING:
+      switch(currentEvent){
+        case EVENT_TRAINING_RESUMED:
+          currentState = STATE_TRAINING_IN_PROGRESS;
+          break;
+        case EVENT_TRAINING_CANCELLED:
+          currentState = STATE_TRAINING_FINISHED;
+          break;
+        case EVENT_CONTINUE:
+          currentState = STATE_PAUSED_TRAINING;
+          break;
+        default:
+          Serial.println("EVENTO_DESCONOCIDO");
+          break;
+      }
+      break;
+    case STATE_TRAINING_FINISHED:
+      switch(currentEvent){
+        case EVENT_TRAINING_RESTARTED:
+          currentState = STATE_WAITING_FOR_TRAINING;
+          break;
+        case EVENT_CONTINUE:
+          currentState = STATE_TRAINING_FINISHED;
+          break;
+        default:
+          Serial.println("EVENTO_DESCONOCIDO");
+          break;
+      }
+      break;
+    default:
+      Serial.println("ESTADO_DESCONOCIDO");
+      break;
+  }
 }
 
 void loop()
@@ -110,5 +230,7 @@ void loop()
 
 
 }
+
+
 
 //void limpiarFila(int fila, int columna)

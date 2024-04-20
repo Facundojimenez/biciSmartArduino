@@ -63,8 +63,8 @@ state_t currentState;
 
 
 int index = 0;
-const unsigned long MAX_SENSOR_LOOP_TIME = 50;
-const unsigned int NUMBER_OF_SENSORS = 4;
+const unsigned long MAX_SENSOR_LOOP_TIME = 300;
+const unsigned int NUMBER_OF_SENSORS = 5;
 unsigned long currentTime;
 unsigned long previousTime;
 
@@ -116,7 +116,6 @@ void checkPlayStopSensor(){
 
 void checkMediaControlSensor(){
     Serial.println("CHECK SENSOR MEDIA CONTROL");
-
 }
 
 void checkSpeedSensor(){
@@ -127,11 +126,29 @@ void checkTrainingButtonSensor(){
   Serial.println("CHECK SENSOR TRAINING SENSOR");
 }
 
+
+//NOTA IMPORRRRRRTANTE: Preguntar si hay que dejar como sensor a la interfaz bluetooth o no.
+void checkBluetoothInterface(){
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    String consoleCommand = Serial.readString();
+    Serial.print("Comando recibido: ");
+    Serial.println(consoleCommand);
+    currentEvent = EVENT_TRAINING_RECEIVED;
+    Serial.println("Entrenamiento comenzado");
+  }
+  else{
+    currentEvent = EVENT_CONTINUE;
+    Serial.println("estoy esperando comando");
+  }
+}
+
 void (*check_sensor[NUMBER_OF_SENSORS])() = { 
   checkSpeedSensor, 
   checkTrainingButtonSensor,
   checkPlayStopSensor, 
-  checkMediaControlSensor 
+  checkMediaControlSensor,
+  checkBluetoothInterface
 };
 
 
@@ -155,8 +172,8 @@ void get_event(){
 
 void state_machine(){
   get_event();
- printEvento(currentEvent);
- printEstado(currentState);
+  printEvento(currentEvent);
+  printEstado(currentState);
 
   switch(currentState){
     case STATE_WAITING_FOR_TRAINING:

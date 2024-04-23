@@ -80,7 +80,7 @@ unsigned long previousTime;
 //ENTRENAMIENTO
 struct tTraining
 {
-  unsigned int settedTime; // Minutos
+  unsigned int settedTime; // Minutos/Milisegundos?
   unsigned int settedKm;
   bool dinamicMusic;
 };
@@ -91,7 +91,7 @@ unsigned long startTimeTraining; //medir el tiempo que lleva timePassed - startT
 #define MAX_TIME_WAITTING_TRAINING 1000 // 1min
 unsigned long ctTraining;
 unsigned long lctTraining;
-bool trainingReceied = false;
+bool trainingReceived = false;
 
 //RESUMEN
 struct tSummary
@@ -177,7 +177,7 @@ void do_init()
 // Funciones de atención a los sensores
 void checkSpeedSensor()
 {
-  Serial.println("CHECK SENSOR SPEED");
+  //Serial.println("CHECK SENSOR SPEED");
   // TOMO EL TIEMPO ACTUAL
   actual_pedalling_time = millis();
   //     // Serial.println("Hola");
@@ -248,7 +248,7 @@ void checkTrainingButtonSensor()
 void checkBluetoothInterface()
 {
   ctTraining = millis();
-  if(!trainingReceied)
+  if(!trainingReceived)
   {
     if( (ctTraining - lctTraining) < MAX_TIME_WAITTING_TRAINING)
     {
@@ -286,13 +286,15 @@ void checkBluetoothInterface()
         //   currentEvent = EVENT_TRAINING_RECEIVED;
         //   Serial.println("Entrenamiento recibido");
         // }
+        trainingReceived = true;
       }
     }
     else
     {
-      settedTrainning.settedTime = 1;
+      settedTrainning.settedTime = 10000;
       settedTrainning.settedKm = 0;
       settedTrainning.dinamicMusic = true;
+      trainingReceived = true;
       currentEvent = EVENT_TRAINING_RECEIVED;
     }
   }
@@ -365,8 +367,8 @@ void get_event()
 void state_machine()
 {
   get_event();
-  //printState(currentState);
-  //printEvent(currentEvent);
+  printState(currentState);
+  printEvent(currentEvent);
 
   switch (currentState)
   {
@@ -518,17 +520,13 @@ void turnOnIntensityLed()
   if (speed <= LOW_SPEED)
   {
     ledLowSpeed();
-    return;
-  }
-    
-  if (speed < HIGH_SPEED)
+  }else if (speed < MEDIUM_SPEED)
   {
     ledNormalSpeed();
-    return;
+  }else
+  {
+    ledHighSpeed();
   }
-
-  ledHighSpeed();
-  return;
 }
 
 void ledLowSpeed()
@@ -573,20 +571,25 @@ void turnOnBuzzer()
   {
     long trainingTime = currentTime - startTimeTraining;
     //Suena el Buzzer segun progreso del entrenamiento
-    float timePercent = (trainingTime/ONE_MINUTE) * 100 / settedTrainning.settedTime;
-    if(timePercent >= 25 && timePercent <= 26) 
+    //float trainingTimeMin = ((float)trainingTime/ONE_MINUTE);
+    float timePercent = (trainingTime * 100 / (float)settedTrainning.settedTime);
+    Serial.println("Porcentaje");
+    Serial.println(timePercent);
+    Serial.println(trainingTime);
+    Serial.println(settedTrainning.settedTime);
+    if(timePercent >= 0.25 && timePercent <= 0.26) 
     {
       tone(BUZZER_PIN, 200, 2000);
     } 
-    else if (timePercent >= 50 && timePercent <=51)
+    else if (timePercent >= 0.50 && timePercent <= 0.51)
     {
       tone(BUZZER_PIN, 300, 2000);
     } 
-    else if (timePercent >= 75 && timePercent <=76)
+    else if (timePercent >= 0.75 && timePercent <= 0.76)
     {
       tone(BUZZER_PIN, 400, 2000);
     }
-    else if (timePercent >= 99 && timePercent <=101)
+    else if (timePercent >= 0.99 && timePercent <= 1.1)
     {
       tone(BUZZER_PIN, 500, 2000);
   }
@@ -603,17 +606,13 @@ void turnOnDinamicMusic()
   if (speed <= LOW_SPEED)
   {
     Serial.println("Sad Music");
-    return;
-  }
-    
-  if (speed < HIGH_SPEED)
+  }else if (speed < HIGH_SPEED)
   {
     Serial.println("Neutral Music");
-    return;
+  }else
+  {
+    Serial.println("Motivational Music");
   }
-
-  Serial.println("Motivational Music");
-  return;
 
 }
 

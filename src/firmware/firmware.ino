@@ -14,6 +14,19 @@
   TINKERCAD: https://www.tinkercad.com/things/4jSW9r8r8Eu-fantastic-crift/editel?sharecode=Mbjg4XzH3n2pD3k0aG0lXuejTw5PJrB85NU4hLtyJUw
 */
 
+/*
+NOTAS DEL PROFE:
+- Está bien tener el bluetooth como un sensor más.
+- Sacar los switches de las funciones de los LCD
+- Sacar toda la logica de que se leen estados en las funciones de los sensores.
+- Crear eventos en la maquina de estados para los botones
+- MEjorar las funciones de los actuadores
+- Hacer los prints de los mensajes de bluetooth.
+- Implementar logica de play/stop de musica bluetooth segun la intensidad.
+
+
+*/
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 

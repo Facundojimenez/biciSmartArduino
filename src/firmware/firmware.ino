@@ -24,7 +24,7 @@ ENTRENAMIENTO:
 - Por km o Vel (una de las dos), check si quiere musica dinamica o no, si lo quiere, se desactivan los botones de la media?
 - Como sabemos cuanto tiempo estuvo entrenando o cuantos km hizo -> activar el buzzer -> resumen
 - Resumen: Duracion, Vel Media, KM recorridos, Cant Pedaleadas
-- Banda sonora dinamica? choca con la funcionalidad de poner en pausa la musica
+- Banda sonora dinamica? choca con la funcionalidad de poner en pausa la musica cuando va lento
 
 */
 
@@ -36,7 +36,7 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 
 //--CONSTANTES CON NOMBRES DE LOS PINES--
 // SENSORES
-const unsigned int NUMBER_OF_SENSORS = 6; // 5 + 1(BLUETOOTH) 
+const unsigned int NUMBER_OF_SENSORS = 7; // 5 + 1(BLUETOOTH) + 1 (Progreso)
 
 const int PLAY_STOP_MEDIA_SENSOR_PIN = 7;
 const int NEXT_MEDIA_MOVEMENT_SENSOR_PIN = 8;
@@ -48,7 +48,7 @@ const int TRAINING_CANCEL_PIN = 4;
 const int RED_LED_PIN = 11;
 const int GREEN_LED_PIN = 6;
 const int BLUE_LED_PIN = 10;
-// const int BUZZER_PIN = 3;
+const int BUZZER_PIN = 3;
 
 // CONTROLAR VELOCIDAD
 unsigned long actual_pedalling_time;
@@ -65,29 +65,40 @@ const unsigned HIGH_SPEED = 20;
 
 //--CONSTANTES EXTRAS--
 #define SERIAL_SPEED 9600
+#define ONE_MINUTE 60000
 const double CONST_CONV_CM = 0.01723;
 const double COMMON_WHEEL_CIRCUNFERENCE = 2.1;
 
-//TIMEOUT
+//TIMEOUT PARA LEER SENSORES
 const unsigned long MAX_SENSOR_LOOP_TIME = 50; //#define TIEMPO_MAX_MILIS 50 // MEDIO SEGUNDO
 unsigned long currentTime;
 unsigned long previousTime;
 
 //ENTRENAMIENTO
-typedef struct
+struct tTraining
 {
-  int settedTime;
-  int settedKm;
+  unsigned int settedTime;
+  unsigned int settedKm;
   bool dinamicMusic;
-}tEntrenamiento;
-typedef struct
-{
-  int timeDone;
-  int kmDone;
-  float averageSpeed;
-  int cantPed;
-}tSummary;
+};
+tTraining settedTrainning;
+unsigned long startTimeTraining; //medir el tiempo que lleva timePassed - startTimeTraining < settedTime
 
+//TIMEOUT ESPERANDO ENTRENAMIENTO
+#define MAX_TIME_WAITTING_TRAINING 1000 // 1min
+unsigned long ctTraining;
+unsigned long lctTraining;
+bool trainingReceied = false;
+
+//RESUMEN
+struct tSummary
+{
+  unsigned timeDone;
+  unsigned int kmDone;
+  unsigned averageSpeed;
+  unsigned int cantPed;
+};
+tSummary summary = {0,0,0,0};
 
 //ESTADOS Y EVENTOS
 enum state_t
@@ -143,7 +154,7 @@ void do_init()
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
   pinMode(BLUE_LED_PIN, OUTPUT);
-  // pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 
   lcd.init();
   lcd.backlight();
@@ -156,6 +167,7 @@ void do_init()
 
   // Inicializa el tiempo
   previousTime = millis();
+  lctTraining = millis();
 }
 
 // Funciones de atención a los sensores
@@ -185,8 +197,11 @@ void checkSpeedSensor()
     pedal_counter += 1;
   }
 
-  if(speed <= LOW_SPEED)
-    currentEvent = EVENT_PS_MEDIA_BUTTON;
+  if(!settedTrainning.dinamicMusic) //Si esta con su propia musica y va lento, se pausa su musica
+  {
+    if(speed <= LOW_SPEED)
+      currentEvent = EVENT_PS_MEDIA_BUTTON;
+  }
 }
 
 void checkNextButtonSensor()
@@ -209,7 +224,7 @@ void checkPlayStoptButtonSensor()
 
 void checkCancelButtonSensor()
 {
-  int buttonState = digitalRead(TRAINING_CONTROL_PIN);
+  int buttonState = digitalRead(TRAINING_CANCEL_PIN);
   if(buttonState == HIGH)
   {
     currentEvent = EVENT_TRAINING_CANCELLED;
@@ -228,24 +243,75 @@ void checkTrainingButtonSensor()
 
 void checkBluetoothInterface()
 {
-  if (Serial.available() > 0)
+  ctTraining = millis();
+  if(!trainingReceied)
   {
-    // read the incoming byte:
-    // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
-    String consoleCommand = Serial.readString();
-    Serial.print("Comando recibido: ");
-    Serial.println(consoleCommand);
-    if (consoleCommand.equals("training"))
+    if( (ctTraining - lctTraining) < MAX_TIME_WAITTING_TRAINING)
     {
+      if (Serial.available() > 0)
+      {
+        // read the incoming byte:
+        // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
+        String consoleCommand = Serial.readString();
+        int dinamicMusic;
+        Serial.print("Comando recibido: "); //TRAINING: 30MIN TRUE - TRAINING: 3KM FALSE
+        Serial.println(consoleCommand);
+        if(sscanf(consoleCommand.c_str(), "TRAINING: %ldMIN %d", &(settedTrainning.settedTime), &dinamicMusic))
+        {
+          settedTrainning.settedKm = 0;
+        }
+        else
+        {
+          sscanf(consoleCommand.c_str(), "TRAINING: %dKM %d", &(settedTrainning.settedKm), dinamicMusic);
+          settedTrainning.settedTime = 0;
+        }
+        if(dinamicMusic)
+          settedTrainning.dinamicMusic = true;
+        else
+          settedTrainning.dinamicMusic = false;
+
+        Serial.println ("Tiempo:");
+        Serial.println(settedTrainning.settedTime);
+        Serial.println ("KM:");
+        Serial.println(settedTrainning.settedKm);
+        Serial.println ("Dinamic Music:");
+        Serial.println(settedTrainning.dinamicMusic);
+        currentEvent = EVENT_TRAINING_RECEIVED;
+        // if (consoleCommand.equals("training"))
+        // {
+        //   currentEvent = EVENT_TRAINING_RECEIVED;
+        //   Serial.println("Entrenamiento recibido");
+        // }
+      }
+    }
+    else
+    {
+      settedTrainning.settedTime = 60000;
+      settedTrainning.settedKm = 0;
+      settedTrainning.dinamicMusic = true;
       currentEvent = EVENT_TRAINING_RECEIVED;
-      Serial.println("Entrenamiento recibido");
     }
   }
   else
   {
     currentEvent = EVENT_CONTINUE;
-    Serial.println("estoy esperando comando");
+    //Serial.println("estoy esperando comando");
   }
+}
+
+void checkProgress()
+{
+  if(settedTrainning.settedTime != 0){
+    long trainingTime = currentTime - startTimeTraining;
+    if((trainingTime/ONE_MINUTE) >= settedTrainning.settedTime){
+      currentEvent = EVENT_TRAINING_CONCLUDED;
+    }
+  }
+  else
+  {
+    //Calcular los KM recorridos
+  }
+  
 }
 
 void (*check_sensor[NUMBER_OF_SENSORS])() = 
@@ -256,6 +322,7 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
     checkPlayStoptButtonSensor,
     checkNextButtonSensor,
     checkBluetoothInterface,
+    checkProgress,
 };
 
 //Funciones Actuadores
@@ -268,6 +335,8 @@ void ledNormalSpeed();
 void ledHighSpeed();
 void offLed();
 void sendMusicComand(String comand);
+void turnOnBuzzer();
+void turnOnDinamicMusic();
 
 //Tomar Eventos
 void get_event()
@@ -290,8 +359,8 @@ void get_event()
 void state_machine()
 {
   get_event();
-  printState(currentState);
-  printEvent(currentEvent);
+  //printState(currentState);
+  //printEvent(currentEvent);
 
   switch (currentState)
   {
@@ -353,6 +422,7 @@ void state_machine()
       break;
     case EVENT_CONTINUE:
       turnOnIntensityLed();
+      turnOnBuzzer();
       showSpeed();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -483,6 +553,51 @@ void offLed()
 
 void sendMusicComand(String comand)
 {
-  Serial.print("Enviando Comando: ");
-  Serial.println(comand);
+  if(!settedTrainning.dinamicMusic)
+  {
+    Serial.print("Enviando Comando: ");
+    Serial.println(comand);
+  }
+}
+
+void turnOnBuzzer()
+{
+  long trainingTime = currentTime - startTimeTraining;
+  //Suena el Buzzer segun progreso del entrenamiento
+  float timePercent = (trainingTime/ONE_MINUTE) * 100 / settedTrainning.settedTime;
+  if(timePercent >= 25 && timePercent <= 26) 
+  {
+    tone(BUZZER_PIN, 200, 2000);
+  } 
+  else if (timePercent >= 50 && timePercent <=51)
+  {
+    tone(BUZZER_PIN, 300, 2000);
+  } 
+  else if (timePercent >= 75 && timePercent <=76)
+  {
+    tone(BUZZER_PIN, 400, 2000);
+  }
+  else if (timePercent >= 99 && timePercent <=101)
+  {
+    tone(BUZZER_PIN, 500, 2000);
+  }
+}
+
+void turnOnDinamicMusic()
+{
+  if (speed <= LOW_SPEED)
+  {
+    Serial.println("Sad Music");
+    return;
+  }
+    
+  if (speed < HIGH_SPEED)
+  {
+    Serial.println("Neutral Music");
+    return;
+  }
+
+  Serial.println("Motivational Music");
+  return;
+
 }

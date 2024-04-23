@@ -1,16 +1,4 @@
 /*
-  TO DO:
-  *NOTA IMPORRRRRRTANTE: Preguntar si hay que dejar como sensor a la interfaz bluetooth o no.
-  *Definir la estructura entrenamiento
-  *Pausa/Reanudar el potenciometro y el calculo de velocidad cuando se Pausa/Reanuda el entrenamiento
-    -Cuando estamos en el estado de pausa, que solo haga el checkTrainingButton()
-    -COMO? get_event() no puede leer el estado actual
-  *Manejo de los botones de play y next de la musica, enviar comando por BT: eventos? o lo manejamos dentro de MONITORING_TRINING?
-    -La unica manera de saber si tocaron un boton es en get_event() 
-  *Usar un boton con dos funciones es complicado, no funciona solo guardando el estado anterior y metiendo un lct 
-    -(IDEA: LIBRERIA EASY BUTTON, no esta en tinkercad)
-  *Envio del resumen por BT al finalizar el entrenamiento
-
   TINKERCAD: https://www.tinkercad.com/things/4jSW9r8r8Eu-fantastic-crift/editel?sharecode=Mbjg4XzH3n2pD3k0aG0lXuejTw5PJrB85NU4hLtyJUw
 */
 
@@ -24,6 +12,19 @@ NOTAS DEL PROFE:
 - Hacer los prints de los mensajes de bluetooth.
 - Implementar logica de play/stop de musica bluetooth segun la intensidad.
 
+TO DO:
+  *Definir la estructura entrenamiento
+  *Pausa/Reanudar el potenciometro y el calculo de velocidad cuando se Pausa/Reanuda el entrenamiento
+  *Envio del resumen por BT al finalizar el entrenamiento
+  *Timeout esperando entrenamiento
+  *Entrenamiento predeterminado
+
+ENTRENAMIENTO:
+
+- Por km o Vel (una de las dos), check si quiere musica dinamica o no, si lo quiere, se desactivan los botones de la media?
+- Como sabemos cuanto tiempo estuvo entrenando o cuantos km hizo -> activar el buzzer -> resumen
+- Resumen: Duracion, Vel Media, KM recorridos, Cant Pedaleadas
+- Banda sonora dinamica? choca con la funcionalidad de poner en pausa la musica
 
 */
 
@@ -35,9 +36,10 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 
 //--CONSTANTES CON NOMBRES DE LOS PINES--
 // SENSORES
+const unsigned int NUMBER_OF_SENSORS = 6; // 5 + 1(BLUETOOTH) 
 
 const int PLAY_STOP_MEDIA_SENSOR_PIN = 7;
-const int PREVIOUS_NEXT_MEDIA_MOVEMENT_SENSOR_PIN = 8;
+const int NEXT_MEDIA_MOVEMENT_SENSOR_PIN = 8;
 const int HALL_SENSOR_PIN = A3;
 const int TRAINING_CONTROL_PIN = 2;
 const int TRAINING_CANCEL_PIN = 4;
@@ -48,30 +50,46 @@ const int GREEN_LED_PIN = 6;
 const int BLUE_LED_PIN = 10;
 // const int BUZZER_PIN = 3;
 
+// CONTROLAR VELOCIDAD
 unsigned long actual_pedalling_time;
 unsigned long previous_pedalling_time;
-
 int pedal_counter = 0;
 float pedaling_frecuency_mHz = 0;
 float speed = 0;
 int index = 0;
 float rpm = 0;
 
-//--CONSTANTES EXTRAS--
-const double CONST_CONV_CM = 0.01723;
-const double COMMON_WHEEL_CIRCUNFERENCE = 2.1;
-
-#define SERIAL_SPEED 9600
-#define TIEMPO_MAX_MILIS 50 // MEDIO SEGUNDO
 const unsigned LOW_SPEED = 7;
 const unsigned MEDIUM_SPEED = 13;
 const unsigned HIGH_SPEED = 20;
 
-const unsigned long MAX_SENSOR_LOOP_TIME = 50;
-const unsigned int NUMBER_OF_SENSORS = 6;
+//--CONSTANTES EXTRAS--
+#define SERIAL_SPEED 9600
+const double CONST_CONV_CM = 0.01723;
+const double COMMON_WHEEL_CIRCUNFERENCE = 2.1;
+
+//TIMEOUT
+const unsigned long MAX_SENSOR_LOOP_TIME = 50; //#define TIEMPO_MAX_MILIS 50 // MEDIO SEGUNDO
 unsigned long currentTime;
 unsigned long previousTime;
 
+//ENTRENAMIENTO
+typedef struct
+{
+  int settedTime;
+  int settedKm;
+  bool dinamicMusic;
+}tEntrenamiento;
+typedef struct
+{
+  int timeDone;
+  int kmDone;
+  float averageSpeed;
+  int cantPed;
+}tSummary;
+
+
+//ESTADOS Y EVENTOS
 enum state_t
 {
   STATE_WAITING_FOR_TRAINING,
@@ -87,9 +105,6 @@ enum event_t
   EVENT_TRAINING_BUTTON,
   EVENT_PS_MEDIA_BUTTON,
   EVENT_NEXT_MEDIA_BUTTON,
-  // EVENT_TRAINING_STARTED,
-  // EVENT_TRAINING_PAUSED,
-  // EVENT_TRAINING_RESUMED,
   EVENT_TRAINING_CONCLUDED,
   EVENT_TRAINING_CANCELLED,
   EVENT_TRAINING_RESTARTED,
@@ -102,7 +117,6 @@ state_t currentState;
 
 String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
 String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINNING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON", 
-                        /*"EVENT_TRAINING_STARTED", "EVENT_TRAINING_PAUSED", "EVENT_TRAINING_RESUMED",*/
                         "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
 
 void printEvent(int eventIndex)
@@ -117,10 +131,11 @@ void printState(int stateIndex)
   Serial.println(arrStates[stateIndex]);
 }
 
+//CONFIGURACION
 void do_init()
 {
   pinMode(PLAY_STOP_MEDIA_SENSOR_PIN, INPUT);
-  pinMode(PREVIOUS_NEXT_MEDIA_MOVEMENT_SENSOR_PIN, INPUT);
+  pinMode(NEXT_MEDIA_MOVEMENT_SENSOR_PIN, INPUT);
   pinMode(TRAINING_CANCEL_PIN, INPUT);
   pinMode(TRAINING_CONTROL_PIN, INPUT);
   pinMode(HALL_SENSOR_PIN, INPUT);
@@ -139,29 +154,11 @@ void do_init()
   currentState = STATE_WAITING_FOR_TRAINING;
   currentEvent = EVENT_CONTINUE;
 
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Waiting For");
-  lcd.setCursor(0, 1);
-  lcd.print("Training!");
   // Inicializa el tiempo
   previousTime = millis();
 }
 
 // Funciones de atención a los sensores
-
-// void checkPlayStopSensor()
-// {
-//   Serial.println("CHECK SENSOR PLAY/STOP");
-//   readPlayStopSensor(PLAY_STOP_MOVEMENT_SENSOR_PIN, PLAY_STOP_MOVEMENT_SENSOR_PIN);
-// }
-
-// void checkMediaControlSensor()
-// {
-//   Serial.println("CHECK SENSOR MEDIA CONTROL");
-//   readMediaControlSensor(PREVIOUS_NEXT_MEDIA_MOVEMENT_SENSOR_PIN, PREVIOUS_NEXT_MEDIA_MOVEMENT_SENSOR_PIN);
-// }
-
 void checkSpeedSensor()
 {
   Serial.println("CHECK SENSOR SPEED");
@@ -187,11 +184,14 @@ void checkSpeedSensor()
     previous_pedalling_time = actual_pedalling_time;
     pedal_counter += 1;
   }
+
+  if(speed <= LOW_SPEED)
+    currentEvent = EVENT_PS_MEDIA_BUTTON;
 }
 
-void checkPreviosNextButtonSensor()
+void checkNextButtonSensor()
 {
-  int buttonState = digitalRead(PREVIOUS_NEXT_MEDIA_MOVEMENT_SENSOR_PIN);
+  int buttonState = digitalRead(NEXT_MEDIA_MOVEMENT_SENSOR_PIN);
   if(buttonState == HIGH)
   {
     currentEvent = EVENT_NEXT_MEDIA_BUTTON;
@@ -224,27 +224,8 @@ void checkTrainingButtonSensor()
   {
     currentEvent = EVENT_TRAINING_BUTTON;
   }
-
-  // if (buttonState == HIGH)
-  // {
-  //   switch (currentState)
-  //   {
-  //   case STATE_READY_FOR_TRAINING:
-  //     currentEvent = EVENT_TRAINING_STARTED;
-  //     break;
-  //   case STATE_TRAINING_IN_PROGRESS:
-  //     currentEvent = EVENT_TRAINING_PAUSED;
-  //     break;
-  //   case STATE_PAUSED_TRAINING:
-  //     currentEvent = EVENT_TRAINING_RESUMED;
-
-  //   default:
-  //     break;
-  //   }
-  // }
 }
 
-// NOTA IMPORRRRRRTANTE: Preguntar si hay que dejar como sensor a la interfaz bluetooth o no.
 void checkBluetoothInterface()
 {
   if (Serial.available() > 0)
@@ -273,13 +254,24 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
     checkCancelButtonSensor,
     checkTrainingButtonSensor,
     checkPlayStoptButtonSensor,
-    checkPreviosNextButtonSensor,
+    checkNextButtonSensor,
     checkBluetoothInterface,
 };
 
+//Funciones Actuadores
+
+void showSpeed();
+void showTrainignState(String event);
+void turnOnIntensityLed();
+void ledLowSpeed();
+void ledNormalSpeed();
+void ledHighSpeed();
+void offLed();
+void sendMusicComand(String comand);
+
+//Tomar Eventos
 void get_event()
 {
-
   // verificar sensores
   currentTime = millis();
   if ((currentTime - previousTime) > MAX_SENSOR_LOOP_TIME)
@@ -294,6 +286,7 @@ void get_event()
   }
 }
 
+//Maquina de estados
 void state_machine()
 {
   get_event();
@@ -306,11 +299,11 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_RECEIVED:
-      updateLCD(currentEvent);
+      showTrainignState("Received");
       currentState = STATE_READY_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
-      updateLCD(currentEvent);
+      showTrainignState("Not Received"); //Training not received -> Waiting for trainning
       currentState = STATE_WAITING_FOR_TRAINING;
       break;
     default:
@@ -322,10 +315,11 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_BUTTON:
-      updateLCD(currentEvent);
+      showTrainignState("Started");
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
+      showTrainignState("Waiting to Start");
       currentState = STATE_READY_FOR_TRAINING;
       break;
     default:
@@ -337,35 +331,31 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_CONCLUDED:
-      //Detener Potenciometro y calculo de velocidad
-      updateLCD(currentEvent);
+      showTrainignState("Concluided");
       currentState = STATE_TRAINING_FINISHED;
       break;
-    case EVENT_TRAINING_BUTTON: //PAUSA
-      updateLCD(currentEvent);
-      updateRGB(currentEvent);
+    case EVENT_TRAINING_BUTTON:
+      showTrainignState("Paused");
       currentState = STATE_PAUSED_TRAINING;
-      //Detener Potenciometro y calculo de velocidad
       break;
     case EVENT_TRAINING_CANCELLED:
-      updateLCD(currentEvent);
-      //Detener Potenciometro y calculo de velocidad
+      showTrainignState("Cancelled");
       currentState = STATE_TRAINING_FINISHED;
       break;
-    case EVENT_MONITORING_TRAINING:
+    //case EVENT_MONITORING_TRAINING:
       // currentState = STATE_TRAINING_IN_PROGRESS;
+      //break;
+    case EVENT_PS_MEDIA_BUTTON:
+      sendMusicComand("STOP");
       break;
-
+    case EVENT_NEXT_MEDIA_BUTTON:
+      sendMusicComand("NEXT");
+      break;
     case EVENT_CONTINUE:
-      updateRGB(EVENT_MONITORING_TRAINING);
-      updateLCD(EVENT_MONITORING_TRAINING);
-      // currentState = STATE_TRAINING_IN_PROGRESS;
+      turnOnIntensityLed();
+      showSpeed();
+      currentState = STATE_TRAINING_IN_PROGRESS;
       break;
-
-    // case EVENT_TRAINING_RESUMED:
-    //   updateLCD(currentEvent);
-    //   updateRGB(currentEvent);
-    //   break;
 
     default:
       Serial.println("UNKNOWN_EVENT");
@@ -375,19 +365,16 @@ void state_machine()
   case STATE_PAUSED_TRAINING:
     switch (currentEvent)
     {
-    case EVENT_TRAINING_BUTTON: //RESUMED
-      updateLCD(currentEvent);
-      updateRGB(currentEvent);
+    case EVENT_TRAINING_BUTTON: 
+      showTrainignState("Resumed");
       currentState = STATE_TRAINING_IN_PROGRESS;
-      //Reiniciar Potenciometro y calculo de velocidad
       break;
     case EVENT_TRAINING_CANCELLED:
-      //Desactivar Potenciometro y calculo de velocidad
-      updateLCD(currentEvent);
+      showTrainignState("Cancelles");
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_CONTINUE:
-      updateRGB(EVENT_TRAINING_BUTTON);
+      offLed();
       currentState = STATE_PAUSED_TRAINING;
       break;
     default:
@@ -415,7 +402,7 @@ void state_machine()
     break;
   }
 }
-
+//Sistema Embebido
 void setup()
 {
   do_init();
@@ -426,144 +413,76 @@ void loop()
   state_machine();
 }
 
-void updateLCD(int event)
+//Funciones Actuadores
+void showSpeed()
 {
-  switch (event)
-  {
-  case EVENT_TRAINING_RECEIVED:
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Training");
-    lcd.setCursor(0, 1);
-    lcd.print("Received!");
-    break;
-  case EVENT_TRAINING_BUTTON:
-    switch(currentState)
-    {
-      case STATE_READY_FOR_TRAINING:
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Training");
-        lcd.setCursor(0, 1);
-        lcd.print("Started!");
-      case STATE_TRAINING_IN_PROGRESS:
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Training");
-        lcd.setCursor(0, 1);
-        lcd.print("Paused!");
-      case STATE_PAUSED_TRAINING:
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Training");
-        lcd.setCursor(0, 1);
-        lcd.print("Resumed!");
-      default:
-      break;
-    }
-  case EVENT_TRAINING_CONCLUDED:
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Training");
-    lcd.setCursor(0, 1);
-    lcd.print("Concluded!");
-    break;
-  case EVENT_TRAINING_CANCELLED:
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Training");
-    lcd.setCursor(0, 1);
-    lcd.print("Canceled!");
-    break;
-  case EVENT_TRAINING_RESTARTED:
-    break;
-  case EVENT_CONTINUE:
-    break;
-  case EVENT_MONITORING_TRAINING:
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("laps");
-    lcd.setCursor(10, 0);
-    lcd.print(pedal_counter);
-    lcd.setCursor(0, 1);
-    lcd.print("speed");
-    lcd.setCursor(10, 1);
-    lcd.print((int)speed);
-    break;
-  default:
-    break;
-  }
-  
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("laps");
+  lcd.setCursor(10, 0);
+  lcd.print(pedal_counter);
+  lcd.setCursor(0, 1);
+  lcd.print("speed");
+  lcd.setCursor(10, 1);
+  lcd.print((int)speed);
 }
 
-void updateRGB(int event)
+void showTrainignState(String event)
 {
-  switch (event)
-  {
-  case EVENT_MONITORING_TRAINING:
-    if (speed <= LOW_SPEED)
-    {
-      analogWrite(BLUE_LED_PIN, 255);
-      analogWrite(GREEN_LED_PIN, 0);
-      analogWrite(RED_LED_PIN, 0);
-    }
-    else if (speed > LOW_SPEED && speed < HIGH_SPEED)
-    {
-      analogWrite(BLUE_LED_PIN, 0);
-      analogWrite(GREEN_LED_PIN, 255);
-      analogWrite(RED_LED_PIN, 0);
-    }
-    else if (speed >= HIGH_SPEED)
-    {
-      analogWrite(BLUE_LED_PIN, 0);
-      analogWrite(GREEN_LED_PIN, 0);
-      analogWrite(RED_LED_PIN, 255);
-    }
-    break;
-  case EVENT_TRAINING_BUTTON:
-    analogWrite(BLUE_LED_PIN, 0);
-    analogWrite(GREEN_LED_PIN, 0);
-    analogWrite(RED_LED_PIN, 0);
-
-    break;
-
-  default:
-    break;
-  }
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Training");
+  lcd.setCursor(0, 1);
+  lcd.print(event);
 }
 
-// long readPlayStopSensor(int triggerPin, int echoPin)
-// {
-//   pinMode(triggerPin, OUTPUT);
+void turnOnIntensityLed()
+{
+  if (speed <= LOW_SPEED)
+  {
+    ledLowSpeed();
+    return;
+  }
+    
+  if (speed < HIGH_SPEED)
+  {
+    ledNormalSpeed();
+    return;
+  }
 
-//   // limpio el TRIGGER
-//   digitalWrite(triggerPin, LOW);
-//   delayMicroseconds(2);
+  ledHighSpeed();
+  return;
+}
 
-//   // pongo HIGH el trigger por 10 microsegundos
-//   digitalWrite(triggerPin, HIGH);
-//   delayMicroseconds(10);
-//   digitalWrite(triggerPin, LOW);
-//   pinMode(echoPin, INPUT);
+void ledLowSpeed()
+{
+  analogWrite(BLUE_LED_PIN, 255);
+  analogWrite(GREEN_LED_PIN, 0);
+  analogWrite(RED_LED_PIN, 0);
+}
 
-//   // Leo la señal ECHO y retorno el tiempo del sondio
-//   return pulseIn(echoPin, HIGH);
-// }
+void ledNormalSpeed()
+{
+  analogWrite(BLUE_LED_PIN, 0);
+  analogWrite(GREEN_LED_PIN, 255);
+  analogWrite(RED_LED_PIN, 0);  
+}
 
-// long readMediaControlSensor(int triggerPin, int echoPin)
-// {
-//   pinMode(triggerPin, OUTPUT);
+void ledHighSpeed()
+{
+  analogWrite(BLUE_LED_PIN, 0);
+  analogWrite(GREEN_LED_PIN, 0);
+  analogWrite(RED_LED_PIN, 255);
+}
+void offLed()
+{
+  analogWrite(BLUE_LED_PIN, 0);
+  analogWrite(GREEN_LED_PIN, 0);
+  analogWrite(RED_LED_PIN, 0);
+}
 
-//   // limpio el TRIGGER
-//   digitalWrite(triggerPin, LOW);
-//   delayMicroseconds(2);
-
-//   // pongo HIGH el trigger por 10 microsegundos
-//   digitalWrite(triggerPin, HIGH);
-//   delayMicroseconds(10);
-//   digitalWrite(triggerPin, LOW);
-//   pinMode(echoPin, INPUT);
-
-//   // Leo la señal ECHO y retorno el tiempo del sondio
-//   return pulseIn(echoPin, HIGH);
-// }
+void sendMusicComand(String comand)
+{
+  Serial.print("Enviando Comando: ");
+  Serial.println(comand);
+}

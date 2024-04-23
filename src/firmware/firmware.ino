@@ -14,10 +14,13 @@ NOTAS DEL PROFE:
 
 TO DO:
   *Definir la estructura entrenamiento
-  *Pausa/Reanudar el potenciometro y el calculo de velocidad cuando se Pausa/Reanuda el entrenamiento
-  *Envio del resumen por BT al finalizar el entrenamiento
-  *Timeout esperando entrenamiento
-  *Entrenamiento predeterminado
+  *Que empiece a contar cuando tocamos el boton, no cuando prende
+  *Envio del resumen por BT al finalizar el entrenamiento, hayq eu ver como calcular cuantos km hizo, la vel media
+  *Activar el buzzer por porcentaje de KM (por tiempo ya esta hecho, falta por km)
+  *Timeout esperando entrenamiento (hecho, revisar!)
+  *Entrenamiento predeterminado (hecho, revisar!)
+  *Reseteo de las variables para el proximo entrenamiento
+  *Prender RGB cuando prende el sistema
 
 ENTRENAMIENTO:
 
@@ -38,8 +41,8 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 // SENSORES
 const unsigned int NUMBER_OF_SENSORS = 7; // 5 + 1(BLUETOOTH) + 1 (Progreso)
 
-const int PLAY_STOP_MEDIA_SENSOR_PIN = 7;
-const int NEXT_MEDIA_MOVEMENT_SENSOR_PIN = 8;
+const int PLAY_STOP_MEDIA_SENSOR_PIN = 8;
+const int NEXT_MEDIA_MOVEMENT_SENSOR_PIN = 7;
 const int HALL_SENSOR_PIN = A3;
 const int TRAINING_CONTROL_PIN = 2;
 const int TRAINING_CANCEL_PIN = 4;
@@ -77,7 +80,7 @@ unsigned long previousTime;
 //ENTRENAMIENTO
 struct tTraining
 {
-  unsigned int settedTime;
+  unsigned int settedTime; // Minutos
   unsigned int settedKm;
   bool dinamicMusic;
 };
@@ -168,6 +171,7 @@ void do_init()
   // Inicializa el tiempo
   previousTime = millis();
   lctTraining = millis();
+  startTimeTraining = millis();
 }
 
 // Funciones de atención a los sensores
@@ -286,7 +290,7 @@ void checkBluetoothInterface()
     }
     else
     {
-      settedTrainning.settedTime = 60000;
+      settedTrainning.settedTime = 1;
       settedTrainning.settedKm = 0;
       settedTrainning.dinamicMusic = true;
       currentEvent = EVENT_TRAINING_RECEIVED;
@@ -299,17 +303,18 @@ void checkBluetoothInterface()
   }
 }
 
-void checkProgress()
+void checkProgress() //Verifica si termino o no
 {
-  if(settedTrainning.settedTime != 0){
+  if(settedTrainning.settedTime != 0) //Si seteo por tiempo
+  {
     long trainingTime = currentTime - startTimeTraining;
     if((trainingTime/ONE_MINUTE) >= settedTrainning.settedTime){
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
   }
-  else
+  else //Si seteo por KM
   {
-    //Calcular los KM recorridos
+    //Calcular los KM recorridos para saber si termino o no
   }
   
 }
@@ -337,6 +342,7 @@ void offLed();
 void sendMusicComand(String comand);
 void turnOnBuzzer();
 void turnOnDinamicMusic();
+void sendSummary();
 
 //Tomar Eventos
 void get_event()
@@ -456,7 +462,8 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_RESTARTED:
-      //Enviar resumen
+      showTrainignState("Restarting");
+      sendSummary();
       currentState = STATE_WAITING_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
@@ -562,25 +569,33 @@ void sendMusicComand(String comand)
 
 void turnOnBuzzer()
 {
-  long trainingTime = currentTime - startTimeTraining;
-  //Suena el Buzzer segun progreso del entrenamiento
-  float timePercent = (trainingTime/ONE_MINUTE) * 100 / settedTrainning.settedTime;
-  if(timePercent >= 25 && timePercent <= 26) 
+  if(settedTrainning.settedTime != 0)
   {
-    tone(BUZZER_PIN, 200, 2000);
-  } 
-  else if (timePercent >= 50 && timePercent <=51)
-  {
-    tone(BUZZER_PIN, 300, 2000);
-  } 
-  else if (timePercent >= 75 && timePercent <=76)
-  {
-    tone(BUZZER_PIN, 400, 2000);
+    long trainingTime = currentTime - startTimeTraining;
+    //Suena el Buzzer segun progreso del entrenamiento
+    float timePercent = (trainingTime/ONE_MINUTE) * 100 / settedTrainning.settedTime;
+    if(timePercent >= 25 && timePercent <= 26) 
+    {
+      tone(BUZZER_PIN, 200, 2000);
+    } 
+    else if (timePercent >= 50 && timePercent <=51)
+    {
+      tone(BUZZER_PIN, 300, 2000);
+    } 
+    else if (timePercent >= 75 && timePercent <=76)
+    {
+      tone(BUZZER_PIN, 400, 2000);
+    }
+    else if (timePercent >= 99 && timePercent <=101)
+    {
+      tone(BUZZER_PIN, 500, 2000);
   }
-  else if (timePercent >= 99 && timePercent <=101)
-  {
-    tone(BUZZER_PIN, 500, 2000);
   }
+  else
+  {
+    //Por KM
+  }
+  
 }
 
 void turnOnDinamicMusic()
@@ -599,5 +614,10 @@ void turnOnDinamicMusic()
 
   Serial.println("Motivational Music");
   return;
+
+}
+
+void sendSummary()
+{
 
 }

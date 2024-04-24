@@ -124,9 +124,16 @@ enum event_t
 event_t currentEvent;
 state_t currentState;
 
+<<<<<<< HEAD
 String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
 String arrEvents[9] = {"EVENT_RECEIVED", "EVENT_BUTTON", "EVENT_CANCELLED", "EVENT_PS_MEDIA", "EVENT_NEXT_MEDIA",
                         "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING"};
+=======
+//!!!Ver de SACAR esto porque actualmente solo se usar para debuggear dentro de las funciones de printEvent y printState
+String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
+String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
+                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
+>>>>>>> 5831cfa6fe8ed2d1294be73b590558b328050836
 
 void printEvent(int eventIndex)
 {
@@ -248,7 +255,6 @@ void checkBluetoothInterface()
     {
       if (Serial.available() > 0)
       {
-        // read the incoming byte:
         // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
         String consoleCommand = Serial.readString();
         int dynamicMusic;

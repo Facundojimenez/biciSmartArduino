@@ -431,6 +431,7 @@ void state_machine()
     case EVENT_CONTINUE:
       turnOnIntensityLed();
       turnOnBuzzer();
+      turnOnDinamicMusic();
       showSpeed();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -577,19 +578,21 @@ void turnOnBuzzer()
     Serial.println(timePercent);
     Serial.println(trainingTime);
     Serial.println(settedTrainning.settedTime);
-    if(timePercent >= 0.25 && timePercent <= 0.26) 
+    if(timePercent >= 25 && timePercent <= 26) 
     {
+      Serial.println("suena 25");
       tone(BUZZER_PIN, 200, 2000);
     } 
-    else if (timePercent >= 0.50 && timePercent <= 0.51)
+    else if (timePercent >= 50 && timePercent <= 51)
     {
+      Serial.println("suena 50");
       tone(BUZZER_PIN, 300, 2000);
     } 
-    else if (timePercent >= 0.75 && timePercent <= 0.76)
+    else if (timePercent >= 75 && timePercent <= 76)
     {
       tone(BUZZER_PIN, 400, 2000);
     }
-    else if (timePercent >= 0.99 && timePercent <= 1.1)
+    else if (timePercent >= 99 && timePercent <= 101)
     {
       tone(BUZZER_PIN, 500, 2000);
   }
@@ -603,17 +606,19 @@ void turnOnBuzzer()
 
 void turnOnDinamicMusic()
 {
-  if (speed <= LOW_SPEED)
+  if(settedTrainning.dinamicMusic)
   {
-    Serial.println("Sad Music");
-  }else if (speed < HIGH_SPEED)
-  {
-    Serial.println("Neutral Music");
-  }else
-  {
-    Serial.println("Motivational Music");
+    if (speed <= LOW_SPEED)
+    {
+      Serial.println("Sad Music");
+    }else if (speed < HIGH_SPEED)
+    {
+      Serial.println("Neutral Music");
+    }else
+    {
+      Serial.println("Motivational Music");
+    }
   }
-
 }
 
 void sendSummary()

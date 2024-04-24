@@ -132,6 +132,7 @@ enum event_t
 event_t currentEvent;
 state_t currentState;
 
+//!!!Ver de SACAR esto porque actualmente solo se usar para debuggear dentro de las funciones de printEvent y printState
 String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
 String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
                         "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
@@ -256,7 +257,6 @@ void checkBluetoothInterface()
     {
       if (Serial.available() > 0)
       {
-        // read the incoming byte:
         // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
         String consoleCommand = Serial.readString();
         int dynamicMusic;
@@ -336,13 +336,13 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
 // Funciones Actuadores
 
 void showSpeed();
-void showTrainignState(String event);
+void showTrainignState(char* event);
 void turnOnIntensityLed();
 void ledLowSpeed();
 void ledNormalSpeed();
 void ledHighSpeed();
 void offLed();
-void sendMusicComand(String comand);
+void sendMusicComand(char* comand);
 void turnOnBuzzer();
 void turnOnDynamicMusic();
 void sendSummary();
@@ -515,7 +515,7 @@ void showSpeed()
   lcd.print((int)speed_KMH);
 }
 
-void showTrainignState(String event)
+void showTrainignState(char* event)
 {
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -567,7 +567,7 @@ void offLed()
   analogWrite(RED_LED_PIN, 0);
 }
 
-void sendMusicComand(String comand)
+void sendMusicComand(char* comand)
 {
   if (!settedTrainning.dynamicMusic)
   {

@@ -72,6 +72,9 @@ float speed_KMH = 0;
 int index = 0;
 float rpm = 0;
 
+float distanceTraveled = 0;
+unsigned long startTime;
+
 const unsigned LOW_SPEED = 7;
 const unsigned MEDIUM_SPEED = 13;
 const unsigned HIGH_SPEED = 20;
@@ -351,11 +354,6 @@ void checkBluetoothInterface()
         Serial.println("Dinamic Music:");
         Serial.println(settedTrainning.dynamicMusic);
         currentEvent = EVENT_TRAINING_RECEIVED;
-        // if (consoleCommand.equals("training"))
-        // {
-        //   currentEvent = EVENT_TRAINING_RECEIVED;
-        //   Serial.println("Entrenamiento recibido");
-        // }
         trainingReceived = true;
       }
     }
@@ -371,7 +369,6 @@ void checkBluetoothInterface()
   else
   {
     currentEvent = EVENT_CONTINUE;
-    // Serial.println("estoy esperando comando");
   }
 }
 
@@ -415,6 +412,8 @@ void sendMusicComand(String comand);
 void turnOnBuzzer();
 void turnOnDynamicMusic();
 void sendSummary();
+void updatePedallingCounter();
+void updateDistance();
 
 // Tomar Eventos
 void get_event()
@@ -494,19 +493,23 @@ void state_machine()
     // break;
     case EVENT_PS_MEDIA_BUTTON:
       sendMusicComand("STOP");
+      currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_NEXT_MEDIA_BUTTON:
       sendMusicComand("NEXT");
+      currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_PREVIOUS_MEDIA_BUTTON:
       sendMusicComand("PREVIOUS");
+      currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
       turnOnIntensityLed();
       turnOnBuzzer();
       turnOnDynamicMusic();
       showSpeed();
-      update_pedalling_counter();
+      updatePedallingCounter();
+      updateDistance();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
 
@@ -644,9 +647,9 @@ void sendMusicComand(String comand)
 
 void turnOnBuzzer()
 {
+  long trainingTime = currentTime - startTimeTraining;
   if (settedTrainning.settedTime != 0)
   {
-    long trainingTime = currentTime - startTimeTraining;
     // Suena el Buzzer segun progreso del entrenamiento
     // float trainingTimeMin = ((float)trainingTime/ONE_MINUTE);
     float timePercent = (trainingTime * 100 / (float)settedTrainning.settedTime);
@@ -675,7 +678,43 @@ void turnOnBuzzer()
   }
   else
   {
-    // Por KM
+
+    // Calculate the time elapsed since the start (in hours)
+    float timeElapsedHours = trainingTime / 1000.0 / 3600.0;
+
+    // Calculate the distance traveled using the formula
+    float distanceIncrement = speed_KMH * timeElapsedHours;
+
+    // Update the total distance traveled
+    distanceTraveled += distanceIncrement;
+
+    float travellingPercent = (distanceTraveled * 100 / (float)settedTrainning.settedKm);
+
+    // Update the start time for the next calculation
+    startTime = currentTime;
+
+    Serial.println("Porcentaje");
+    Serial.println(travellingPercent);
+    Serial.println(trainingTime);
+    Serial.println(settedTrainning.settedTime);
+    if (travellingPercent >= 25 && travellingPercent <= 26)
+    {
+      Serial.println("suena 25");
+      tone(BUZZER_PIN, 200, 2000);
+    }
+    else if (travellingPercent >= 50 && travellingPercent <= 51)
+    {
+      Serial.println("suena 50");
+      tone(BUZZER_PIN, 300, 2000);
+    }
+    else if (travellingPercent >= 75 && travellingPercent <= 76)
+    {
+      tone(BUZZER_PIN, 400, 2000);
+    }
+    else if (travellingPercent >= 99 && travellingPercent <= 101)
+    {
+      tone(BUZZER_PIN, 500, 2000);
+    }
   }
 }
 
@@ -698,9 +737,26 @@ void turnOnDynamicMusic()
   }
 }
 
-void update_pedalling_counter()
+void updatePedallingCounter()
 {
   pedal_counter += 1;
+}
+
+void updateDistance()
+{
+  unsigned long currentTime = millis();
+
+  // Calculate the time elapsed since the start (in hours)
+  float timeElapsedHours = (currentTime - startTime) / 1000.0 / 3600.0;
+
+  // Calculate the distance traveled using the formula
+  float distanceIncrement = speed_KMH * timeElapsedHours;
+
+  // Update the total distance traveled
+  distanceTraveled += distanceIncrement;
+
+  // Update the start time for the next calculation
+  startTime = currentTime;
 }
 
 void sendSummary()

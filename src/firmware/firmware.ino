@@ -39,7 +39,7 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 
 //--CONSTANTES CON NOMBRES DE LOS PINES--
 // SENSORES
-const unsigned int NUMBER_OF_SENSORS = 7; // 5 + 1(BLUETOOTH) + 1 (Progreso)
+const unsigned int NUMBER_OF_SENSORS = 8; // 5 + 1(BLUETOOTH) + 1 (Progreso) + 1 (dynamicMusic)
 
 const int PLAY_STOP_MEDIA_SENSOR_PIN = 8;
 const int MEDIA_MOVEMENT_SENSOR_PIN = 7;
@@ -48,12 +48,12 @@ const int TRAINING_CONTROL_PIN = 2;
 const int TRAINING_CANCEL_PIN = 4;
 
 /// PREVIOUS NEXT BUTTON
-int buttonStatePrevious = LOW; // previousstate of the switch
+int buttonStatePrevious = LOW;                   // previousstate of the switch
 unsigned long minButtonLongPressDuration = 1000; // Time we wait before we see the press as a long press
 unsigned long buttonLongPressMillis;             // Time in ms when we the button was pressed
 bool buttonStateLongPress = false;               // True if it is a long press
-const int intervalButton = 50;      // Time between two readings of the button state
-unsigned long previousButtonMillis; // Timestamp of the latest reading
+const int intervalButton = 50;                   // Time between two readings of the button state
+unsigned long previousButtonMillis;              // Timestamp of the latest reading
 unsigned long buttonPressDuration;
 unsigned long currentButtonMillis;
 
@@ -135,15 +135,17 @@ enum event_t
   EVENT_TRAINING_CANCELLED,
   EVENT_TRAINING_RESTARTED,
   EVENT_CONTINUE,
-  EVENT_MONITORING_TRAINING
+  EVENT_MONITORING_TRAINING,
+  EVENT_UPDATE_PEDALLING
+
 };
 
 event_t currentEvent;
 state_t currentState;
 
 String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
-String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_PREVIOUS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
-                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
+String arrEvents[11] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_PREVIOUS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
+                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING", "EVENT_UPDATE_PEDALLING"};
 
 void printEvent(int eventIndex)
 {
@@ -206,8 +208,13 @@ void checkSpeedSensor()
   if ((actual_pedalling_time - previous_pedalling_time) >= frecuency && pedaling_frecuency_mHz > 0)
   {
     previous_pedalling_time = actual_pedalling_time;
-    pedal_counter += 1;
+    currentEvent = EVENT_UPDATE_PEDALLING;
+    // pedal_counter += 1;
   }
+}
+
+void checkDynamicMusic()
+{
 
   if (!settedTrainning.dynamicMusic) // Si esta con su propia musica y va lento, se pausa su musica
   {
@@ -268,7 +275,7 @@ void checkMediaButtonSensor()
       //     // Note: The video shows:
       if (!buttonStateLongPress && buttonPressDuration < minButtonLongPressDuration)
       {
-        //     //       since buttonStateLongPress is set to FALSE on line 75, !buttonStateLongPress is always TRUE
+        //     //       since buttonStateLongPress is set to FALSE on line 263, !buttonStateLongPress is always TRUE
         //     //       and can be removed.
         if (buttonPressDuration < minButtonLongPressDuration)
         {
@@ -396,7 +403,7 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
         checkMediaButtonSensor,
         checkBluetoothInterface,
         checkProgress,
-};
+        checkDynamicMusic};
 
 // Funciones Actuadores
 
@@ -496,6 +503,9 @@ void state_machine()
       break;
     case EVENT_PREVIOUS_MEDIA_BUTTON:
       sendMusicComand("PREVIOUS");
+      break;
+    case EVENT_UPDATE_PEDALLING:
+      update_pedalling_counter();
       break;
     case EVENT_CONTINUE:
       turnOnIntensityLed();
@@ -691,6 +701,11 @@ void turnOnDynamicMusic()
       Serial.println("Motivational Music");
     }
   }
+}
+
+void update_pedalling_counter()
+{
+  pedal_counter += 1;
 }
 
 void sendSummary()

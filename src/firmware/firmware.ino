@@ -47,16 +47,6 @@ const int HALL_SENSOR_PIN = A3;
 const int TRAINING_CONTROL_PIN = 2;
 const int TRAINING_CANCEL_PIN = 4;
 
-/// PREVIOUS NEXT BUTTON
-int buttonStatePrevious = LOW;                   // previousstate of the switch
-unsigned long minButtonLongPressDuration = 1000; // Time we wait before we see the press as a long press
-unsigned long buttonLongPressMillis;             // Time in ms when we the button was pressed
-bool buttonStateLongPress = false;               // True if it is a long press
-const int intervalButton = 50;                   // Time between two readings of the button state
-unsigned long previousButtonMillis;              // Timestamp of the latest reading
-unsigned long buttonPressDuration;
-unsigned long currentButtonMillis;
-
 // ACTUADORES
 const int RED_LED_PIN = 11;
 const int GREEN_LED_PIN = 6;
@@ -72,7 +62,6 @@ float speed_KMH = 0;
 int index = 0;
 float rpm = 0;
 
-float distanceTraveled = 0;
 unsigned long startTime;
 
 const unsigned LOW_SPEED = 7;
@@ -132,7 +121,6 @@ enum event_t
   EVENT_TRAINING_RECEIVED,
   EVENT_TRAINING_BUTTON,
   EVENT_PS_MEDIA_BUTTON,
-  EVENT_PREVIOUS_MEDIA_BUTTON,
   EVENT_NEXT_MEDIA_BUTTON,
   EVENT_TRAINING_CONCLUDED,
   EVENT_TRAINING_CANCELLED,
@@ -145,7 +133,7 @@ event_t currentEvent;
 state_t currentState;
 
 String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
-String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_PREVIOUS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
+String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
                         "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
 
 void printEvent(int eventIndex)
@@ -186,7 +174,6 @@ void do_init()
   // Inicializa el tiempo
   previousTime = millis();
   lctTraining = millis();
-  startTimeTraining = millis();
 }
 
 // Funciones de atención a los sensores
@@ -213,7 +200,7 @@ void checkSpeedSensor()
   }
 }
 
-void checkDynamicMusic()
+void checkStopMusicWhenLowSpeed()
 {
 
   if (!settedTrainning.dynamicMusic) // Si esta con su propia musica y va lento, se pausa su musica
@@ -226,67 +213,9 @@ void checkDynamicMusic()
 void checkMediaButtonSensor()
 {
   int buttonState = digitalRead(MEDIA_MOVEMENT_SENSOR_PIN);
-  // if(buttonState == HIGH)
-  // {
-  //   currentEvent = EVENT_NEXT_MEDIA_BUTTON;
-  // }
-  currentButtonMillis = millis();
-
-  // // If the difference in time between the previous reading is larger than intervalButton
-  if (currentButtonMillis - previousButtonMillis > intervalButton)
+  if(buttonState == HIGH)
   {
-
-    //   // Read the digital value of the button (LOW/HIGH)
-    int buttonState = digitalRead(MEDIA_MOVEMENT_SENSOR_PIN);
-
-    //   // If the button has been pushed AND
-    //   // If the button wasn't pressed before AND
-    //   // IF there was not already a measurement running to determine how long the button has been pressed
-    if (buttonState == HIGH && buttonStatePrevious == LOW && !buttonStateLongPress)
-    {
-      buttonLongPressMillis = currentButtonMillis;
-      buttonStatePrevious = HIGH;
-      //     // Serial.println("Button pressed");
-    }
-
-    //   // Calculate how long the button has been pressed
-    buttonPressDuration = currentButtonMillis - buttonLongPressMillis;
-
-    //   // If the button is pressed AND
-    //   // If there is no measurement running to determine how long the button is pressed AND
-    //   // If the time the button has been pressed is larger or equal to the time needed for a long press
-    if (buttonState == HIGH && !buttonStateLongPress && buttonPressDuration >= minButtonLongPressDuration)
-    {
-      buttonStateLongPress = true;
-      Serial.println("Button long pressed");
-      currentEvent = EVENT_PREVIOUS_MEDIA_BUTTON;
-    }
-
-    //   // If the button is released AND
-    //   // If the button was pressed before
-    if (buttonState == LOW && buttonStatePrevious == HIGH)
-    {
-      buttonStatePrevious = LOW;
-      buttonStateLongPress = false;
-      //     // Serial.println("Button released");
-
-      //     // If there is no measurement running to determine how long the button was pressed AND
-      //     // If the time the button has been pressed is smaller than the minimal time needed for a long press
-      //     // Note: The video shows:
-      if (!buttonStateLongPress && buttonPressDuration < minButtonLongPressDuration)
-      {
-        //     //       since buttonStateLongPress is set to FALSE on line 263, !buttonStateLongPress is always TRUE
-        //     //       and can be removed.
-        if (buttonPressDuration < minButtonLongPressDuration)
-        {
-          Serial.println("Button pressed shortly");
-          currentEvent = EVENT_NEXT_MEDIA_BUTTON;
-        }
-      }
-
-      //   // store the current timestamp in previousButtonMillis
-      previousButtonMillis = currentButtonMillis;
-    }
+    currentEvent = EVENT_NEXT_MEDIA_BUTTON;
   }
 }
 
@@ -331,9 +260,9 @@ void checkBluetoothInterface()
         // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
         String consoleCommand = Serial.readString();
         int dynamicMusic;
-        Serial.print("Comando recibido: "); // TRAINING: 30MIN TRUE - TRAINING: 3KM FALSE
+        Serial.print("Comando recibido: "); // TRAINING: 3000MIL 1 - TRAINING: 3KM 0
         Serial.println(consoleCommand);
-        if (sscanf(consoleCommand.c_str(), "TRAINING: %ldMIN %d", &(settedTrainning.settedTime), &dynamicMusic))
+        if (sscanf(consoleCommand.c_str(), "TRAINING: %ldMIL %d", &(settedTrainning.settedTime), &dynamicMusic))
         {
           settedTrainning.settedKm = 0;
         }
@@ -377,27 +306,32 @@ void checkProgress() // Verifica si termino o no
   if (settedTrainning.settedTime != 0) // Si seteo por tiempo
   {
     long trainingTime = currentTime - startTimeTraining;
-    if ((trainingTime / ONE_MINUTE) >= settedTrainning.settedTime)
+    //trainingTime /= ONE_MINUTE Para Minutos
+    if (trainingTime >= settedTrainning.settedTime)
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
   }
   else // Si seteo por KM
   {
-    // Calcular los KM recorridos para saber si termino o no
+    if(summary.kmDone >= settedTrainning.settedKm)
+    {
+      currentEvent = EVENT_TRAINING_CONCLUDED;
+    }
   }
 }
 
 void (*check_sensor[NUMBER_OF_SENSORS])() =
-    {
-        checkSpeedSensor,
-        checkCancelButtonSensor,
-        checkTrainingButtonSensor,
-        checkPlayStoptButtonSensor,
-        checkMediaButtonSensor,
-        checkBluetoothInterface,
-        checkProgress,
-        checkDynamicMusic};
+{
+  checkSpeedSensor,
+  checkCancelButtonSensor,
+  checkTrainingButtonSensor,
+  checkPlayStoptButtonSensor,
+  checkMediaButtonSensor,
+  checkBluetoothInterface,
+  checkProgress,
+  checkStopMusicWhenLowSpeed
+};
 
 // Funciones Actuadores
 
@@ -462,6 +396,7 @@ void state_machine()
     {
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Started");
+      startTimeTraining = millis();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
@@ -497,10 +432,6 @@ void state_machine()
       break;
     case EVENT_NEXT_MEDIA_BUTTON:
       sendMusicComand("NEXT");
-      currentState = STATE_TRAINING_IN_PROGRESS;
-      break;
-    case EVENT_PREVIOUS_MEDIA_BUTTON:
-      sendMusicComand("PREVIOUS");
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
@@ -599,7 +530,7 @@ void turnOnIntensityLed()
   {
     ledLowSpeed();
   }
-  else if (speed_KMH < MEDIUM_SPEED)
+  else if (speed_KMH <= MEDIUM_SPEED)
   {
     ledNormalSpeed();
   }
@@ -648,75 +579,42 @@ void sendMusicComand(String comand)
 void turnOnBuzzer()
 {
   long trainingTime = currentTime - startTimeTraining;
+  float percent;
   if (settedTrainning.settedTime != 0)
   {
-    // Suena el Buzzer segun progreso del entrenamiento
-    // float trainingTimeMin = ((float)trainingTime/ONE_MINUTE);
-    float timePercent = (trainingTime * 100 / (float)settedTrainning.settedTime);
-    Serial.println("Porcentaje");
-    Serial.println(timePercent);
-    Serial.println(trainingTime);
-    Serial.println(settedTrainning.settedTime);
-    if (timePercent >= 25 && timePercent <= 26)
-    {
-      Serial.println("suena 25");
-      tone(BUZZER_PIN, 200, 2000);
-    }
-    else if (timePercent >= 50 && timePercent <= 51)
-    {
-      Serial.println("suena 50");
-      tone(BUZZER_PIN, 300, 2000);
-    }
-    else if (timePercent >= 75 && timePercent <= 76)
-    {
-      tone(BUZZER_PIN, 400, 2000);
-    }
-    else if (timePercent >= 99 && timePercent <= 101)
-    {
-      tone(BUZZER_PIN, 500, 2000);
-    }
+    // float trainingTimeMin = ((float)trainingTime/ONE_MINUTE) Para Minutos;
+    percent = (trainingTime * 100 / (float)settedTrainning.settedTime);
   }
   else
   {
+    percent = (summary.kmDone * 100 / (float)settedTrainning.settedKm);
+  }
 
-    // Calculate the time elapsed since the start (in hours)
-    float timeElapsedHours = trainingTime / 1000.0 / 3600.0;
+  Serial.println("Porcentaje");
+  Serial.println(percent);
+  Serial.println(trainingTime);
+  Serial.println(settedTrainning.settedTime);
 
-    // Calculate the distance traveled using the formula
-    float distanceIncrement = speed_KMH * timeElapsedHours;
-
-    // Update the total distance traveled
-    distanceTraveled += distanceIncrement;
-
-    float travellingPercent = (distanceTraveled * 100 / (float)settedTrainning.settedKm);
-
-    // Update the start time for the next calculation
-    startTime = currentTime;
-
-    Serial.println("Porcentaje");
-    Serial.println(travellingPercent);
-    Serial.println(trainingTime);
-    Serial.println(settedTrainning.settedTime);
-    if (travellingPercent >= 25 && travellingPercent <= 26)
-    {
-      Serial.println("suena 25");
-      tone(BUZZER_PIN, 200, 2000);
-    }
-    else if (travellingPercent >= 50 && travellingPercent <= 51)
-    {
-      Serial.println("suena 50");
-      tone(BUZZER_PIN, 300, 2000);
-    }
-    else if (travellingPercent >= 75 && travellingPercent <= 76)
-    {
-      tone(BUZZER_PIN, 400, 2000);
-    }
-    else if (travellingPercent >= 99 && travellingPercent <= 101)
-    {
-      tone(BUZZER_PIN, 500, 2000);
-    }
+  if (percent >= 25 && percent <= 26)
+  {
+    Serial.println("suena 25");
+    tone(BUZZER_PIN, 200, 2000);
+  }
+  else if (percent >= 50 && percent <= 51)
+  {
+    Serial.println("suena 50");
+    tone(BUZZER_PIN, 300, 2000);
+  }
+  else if (percent >= 75 && percent <= 76)
+  {
+    tone(BUZZER_PIN, 400, 2000);
+  }
+  else if (percent >= 99 && percent <= 101)
+  {
+    tone(BUZZER_PIN, 500, 2000);
   }
 }
+
 
 void turnOnDynamicMusic()
 {
@@ -753,7 +651,7 @@ void updateDistance()
   float distanceIncrement = speed_KMH * timeElapsedHours;
 
   // Update the total distance traveled
-  distanceTraveled += distanceIncrement;
+  summary.kmDone += distanceIncrement;
 
   // Update the start time for the next calculation
   startTime = currentTime;
@@ -761,4 +659,12 @@ void updateDistance()
 
 void sendSummary()
 {
+  summary.cantPed = pedal_counter;
+  summary.timeDone = currentEvent - startTimeTraining;
+  Serial.println("Cantidad Pedaleadas: ");
+  Serial.print(summary.cantPed);
+  Serial.println("Tiempo: ");
+  Serial.print(summary.timeDone);
+  Serial.println("Kilometros Recorridos: ");
+  Serial.print(summary.kmDone);
 }

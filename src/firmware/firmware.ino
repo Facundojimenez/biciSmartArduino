@@ -4,31 +4,23 @@
 
 /*
 NOTAS DEL PROFE:
-- Está bien tener el bluetooth como un sensor más.
-- Sacar los switches de las funciones de los LCD
-- Sacar toda la logica de que se leen estados en las funciones de los sensores.
-- Crear eventos en la maquina de estados para los botones
-- MEjorar las funciones de los actuadores
-- Hacer los prints de los mensajes de bluetooth.
 - Implementar logica de play/stop de musica bluetooth segun la intensidad.
 
 TO DO:
-  *Definir la estructura entrenamiento
+  *Cuando se pausa, que no cuente para el tiempo en entrenamiento
   *Que empiece a contar cuando tocamos el boton, no cuando prende
-  *Envio del resumen por BT al finalizar el entrenamiento, hayq eu ver como calcular cuantos km hizo, la vel media
-  *Activar el buzzer por porcentaje de KM (por tiempo ya esta hecho, falta por km)
-  *Timeout esperando entrenamiento (hecho, revisar!)
-  *Entrenamiento predeterminado (hecho, revisar!)
+  *Activar el buzzer por porcentaje de KM
   *Reseteo de las variables para el proximo entrenamiento
   *Prender RGB cuando prende el sistema
+  *Nada genera EVENT_RESTARTED
+  *Por como recorremos los sensores, el sistema sigue corriendo aunque haya terminado el entrenamiento porque tienne que recorrer
+  las demas funciones
+  *No se calcula bien la distancia recorrida, queda un numero muy chico que lo considera 0
 
-ENTRENAMIENTO:
-
-- Por km o Vel (una de las dos), check si quiere musica dinamica o no, si lo quiere, se desactivan los botones de la media?
-- Como sabemos cuanto tiempo estuvo entrenando o cuantos km hizo -> activar el buzzer -> resumen
-- Resumen: Duracion, Vel Media, KM recorridos, Cant Pedaleadas
-- Banda sonora dinamica? choca con la funcionalidad de poner en pausa la musica cuando va lento
-
+  *Modificar el BT para recibir el resumen
+  *Modificar los tiempos para que todo quede en m/s y seg
+  *Modificar de calculo de velocidad
+  *Agregar el potenciometro
 */
 
 #include <Wire.h>
@@ -39,7 +31,7 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 
 //--CONSTANTES CON NOMBRES DE LOS PINES--
 // SENSORES
-const unsigned int NUMBER_OF_SENSORS = 8; // 5 + 1(BLUETOOTH) + 1 (Progreso) + 1 (dynamicMusic)
+const unsigned int NUMBER_OF_SENSORS = 8; // 5 + 1(BLUETOOTH) + 1 (Progreso) + 1 (pausarAutomaticamente)
 
 const int PLAY_STOP_MEDIA_SENSOR_PIN = 8;
 const int MEDIA_MOVEMENT_SENSOR_PIN = 7;
@@ -62,10 +54,10 @@ float speed_KMH = 0;
 int index = 0;
 float rpm = 0;
 
-unsigned long startTime;
+unsigned long lctKmCalculated;
+float kmDone;
 
 const unsigned LOW_SPEED = 7;
-const unsigned MEDIUM_SPEED = 13;
 const unsigned HIGH_SPEED = 20;
 
 //--CONSTANTES EXTRAS--
@@ -92,19 +84,19 @@ unsigned long startTimeTraining; // medir el tiempo que lleva timePassed - start
 
 // TIMEOUT ESPERANDO ENTRENAMIENTO
 #define MAX_TIME_WAITTING_TRAINING 1000 // 1min
-unsigned long ctTraining;
-unsigned long lctTraining;
+//unsigned long ctWaitingTraining;
+unsigned long lctWaitingTraining;
 bool trainingReceived = false;
 
 // RESUMEN
 struct tSummary
 {
-  unsigned timeDone;
-  unsigned int kmDone;
+  unsigned int timeDone;
+  float kmDone;
   unsigned averageSpeed;
   unsigned int cantPed;
 };
-tSummary summary = {0, 0, 0, 0};
+tSummary summary = {0, 0, 0};
 
 // ESTADOS Y EVENTOS
 enum state_t
@@ -132,9 +124,9 @@ enum event_t
 event_t currentEvent;
 state_t currentState;
 
-String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
-String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
-                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
+String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
+String arrEvents[9] = {"EVENT_RECEIVED", "EVENT_BUTTON", "EVENT_CANCELLED", "EVENT_PS_MEDIA", "EVENT_NEXT_MEDIA",
+                        "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING"};
 
 void printEvent(int eventIndex)
 {
@@ -173,10 +165,11 @@ void do_init()
 
   // Inicializa el tiempo
   previousTime = millis();
-  lctTraining = millis();
+  lctWaitingTraining = millis();
 }
 
 // Funciones de atención a los sensores
+// Ver las modificaciones necesarias para el calculo de velocidad
 void checkSpeedSensor()
 {
   // TOMO EL TIEMPO ACTUAL
@@ -202,7 +195,6 @@ void checkSpeedSensor()
 
 void checkStopMusicWhenLowSpeed()
 {
-
   if (!settedTrainning.dynamicMusic) // Si esta con su propia musica y va lento, se pausa su musica
   {
     if (speed_KMH <= LOW_SPEED)
@@ -249,10 +241,10 @@ void checkTrainingButtonSensor()
 
 void checkBluetoothInterface()
 {
-  ctTraining = millis();
   if (!trainingReceived)
   {
-    if ((ctTraining - lctTraining) < MAX_TIME_WAITTING_TRAINING)
+    long ctWaitingTraining = millis();
+    if ((ctWaitingTraining - lctWaitingTraining) < MAX_TIME_WAITTING_TRAINING)
     {
       if (Serial.available() > 0)
       {
@@ -297,6 +289,7 @@ void checkBluetoothInterface()
   }
   else
   {
+    //Cuando se manda el resumen, mandar un recibido que genere EVENT_RESTARTED
     currentEvent = EVENT_CONTINUE;
   }
 }
@@ -305,6 +298,7 @@ void checkProgress() // Verifica si termino o no
 {
   if (settedTrainning.settedTime != 0) // Si seteo por tiempo
   {
+    long currentTime = millis();
     long trainingTime = currentTime - startTimeTraining;
     //trainingTime /= ONE_MINUTE Para Minutos
     if (trainingTime >= settedTrainning.settedTime)
@@ -314,7 +308,7 @@ void checkProgress() // Verifica si termino o no
   }
   else // Si seteo por KM
   {
-    if(summary.kmDone >= settedTrainning.settedKm)
+    if(kmDone >= settedTrainning.settedKm)
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
@@ -336,13 +330,13 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
 // Funciones Actuadores
 
 void showSpeed();
-void showTrainignState(String event);
+void showTrainignState(char* event);
 void turnOnIntensityLed();
 void ledLowSpeed();
 void ledNormalSpeed();
 void ledHighSpeed();
 void offLed();
-void sendMusicComand(String comand);
+void sendMusicComand(char* comand);
 void turnOnBuzzer();
 void turnOnDynamicMusic();
 void sendSummary();
@@ -397,6 +391,7 @@ void state_machine()
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Started");
       startTimeTraining = millis();
+      lctKmCalculated = millis();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
@@ -413,7 +408,10 @@ void state_machine()
     {
     case EVENT_TRAINING_CONCLUDED:
       showTrainignState("Concluided");
-      currentState = STATE_TRAINING_FINISHED;
+      sendSummary();
+      trainingReceived = false;
+      currentState = STATE_WAITING_FOR_TRAINING;
+      //currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Paused");
@@ -421,7 +419,10 @@ void state_machine()
       break;
     case EVENT_TRAINING_CANCELLED:
       showTrainignState("Cancelled");
-      currentState = STATE_TRAINING_FINISHED;
+      sendSummary();
+      trainingReceived = false;
+      currentState = STATE_WAITING_FOR_TRAINING;
+      //currentState = STATE_TRAINING_FINISHED;
       break;
     // case EVENT_MONITORING_TRAINING:
     //  currentState = STATE_TRAINING_IN_PROGRESS;
@@ -457,8 +458,11 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_TRAINING_CANCELLED:
-      showTrainignState("Cancelles");
-      currentState = STATE_TRAINING_FINISHED;
+      showTrainignState("Cancelled");
+      trainingReceived = false;
+      sendSummary();
+      currentState = STATE_WAITING_FOR_TRAINING;
+      //currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_CONTINUE:
       offLed();
@@ -475,6 +479,7 @@ void state_machine()
     case EVENT_TRAINING_RESTARTED:
       showTrainignState("Restarting");
       sendSummary();
+      trainingReceived = false;
       currentState = STATE_WAITING_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
@@ -515,7 +520,7 @@ void showSpeed()
   lcd.print((int)speed_KMH);
 }
 
-void showTrainignState(String event)
+void showTrainignState(char* event)
 {
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -530,7 +535,7 @@ void turnOnIntensityLed()
   {
     ledLowSpeed();
   }
-  else if (speed_KMH <= MEDIUM_SPEED)
+  else if (speed_KMH < HIGH_SPEED)
   {
     ledNormalSpeed();
   }
@@ -567,7 +572,7 @@ void offLed()
   analogWrite(RED_LED_PIN, 0);
 }
 
-void sendMusicComand(String comand)
+void sendMusicComand(char* comand)
 {
   if (!settedTrainning.dynamicMusic)
   {
@@ -578,6 +583,7 @@ void sendMusicComand(String comand)
 
 void turnOnBuzzer()
 {
+  long currentTime = millis();
   long trainingTime = currentTime - startTimeTraining;
   float percent;
   if (settedTrainning.settedTime != 0)
@@ -587,31 +593,31 @@ void turnOnBuzzer()
   }
   else
   {
-    percent = (summary.kmDone * 100 / (float)settedTrainning.settedKm);
+    percent = (kmDone * 100 / (float)settedTrainning.settedKm);
   }
 
   Serial.println("Porcentaje");
   Serial.println(percent);
-  Serial.println(trainingTime);
-  Serial.println(settedTrainning.settedTime);
-
+  //Agregar flags por si se pasa y no suena el buzzer
   if (percent >= 25 && percent <= 26)
   {
     Serial.println("suena 25");
-    tone(BUZZER_PIN, 200, 2000);
+    tone(BUZZER_PIN, 200, 500);
   }
   else if (percent >= 50 && percent <= 51)
   {
     Serial.println("suena 50");
-    tone(BUZZER_PIN, 300, 2000);
+    tone(BUZZER_PIN, 300, 500);
   }
   else if (percent >= 75 && percent <= 76)
   {
-    tone(BUZZER_PIN, 400, 2000);
+    Serial.println("suena 75");
+    tone(BUZZER_PIN, 400, 500);
   }
   else if (percent >= 99 && percent <= 101)
   {
-    tone(BUZZER_PIN, 500, 2000);
+    Serial.println("suena 100");
+    tone(BUZZER_PIN, 500, 500);
   }
 }
 
@@ -645,26 +651,27 @@ void updateDistance()
   unsigned long currentTime = millis();
 
   // Calculate the time elapsed since the start (in hours)
-  float timeElapsedHours = (currentTime - startTime) / 1000.0 / 3600.0;
+  float timeElapsedHours = ((float)(currentTime - lctKmCalculated)) / 1000.0; // / 3600.0; //Dejarlo a metros por segundos
 
   // Calculate the distance traveled using the formula
   float distanceIncrement = speed_KMH * timeElapsedHours;
 
   // Update the total distance traveled
-  summary.kmDone += distanceIncrement;
+  kmDone += distanceIncrement;
 
   // Update the start time for the next calculation
-  startTime = currentTime;
+  lctKmCalculated = currentTime;
 }
 
 void sendSummary()
 {
   summary.cantPed = pedal_counter;
   summary.timeDone = currentEvent - startTimeTraining;
+  summary.kmDone = kmDone;
   Serial.println("Cantidad Pedaleadas: ");
-  Serial.print(summary.cantPed);
+  Serial.println(summary.cantPed);
   Serial.println("Tiempo: ");
-  Serial.print(summary.timeDone);
+  Serial.println(summary.timeDone);
   Serial.println("Kilometros Recorridos: ");
-  Serial.print(summary.kmDone);
+  Serial.println(summary.kmDone);
 }

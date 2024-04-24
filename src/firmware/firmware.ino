@@ -136,8 +136,6 @@ enum event_t
   EVENT_TRAINING_RESTARTED,
   EVENT_CONTINUE,
   EVENT_MONITORING_TRAINING,
-  EVENT_UPDATE_PEDALLING
-
 };
 
 event_t currentEvent;
@@ -145,7 +143,7 @@ state_t currentState;
 
 String arrStates[5] = {"STATE_WAITING_FOR_TRAINING", "STATE_READY_FOR_TRAINING", "STATE_TRAINING_IN_PROGRESS", "STATE_PAUSED_TRAINING", "STATE_TRAINING_FINISHED"};
 String arrEvents[11] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PS_MEDIA_BUTTON", "EVENT_PREVIOUS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
-                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING", "EVENT_UPDATE_PEDALLING"};
+                        "EVENT_TRAINING_CONCLUDED", "EVENT_TRAINING_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING_TRAINING"};
 
 void printEvent(int eventIndex)
 {
@@ -208,8 +206,7 @@ void checkSpeedSensor()
   if ((actual_pedalling_time - previous_pedalling_time) >= frecuency && pedaling_frecuency_mHz > 0)
   {
     previous_pedalling_time = actual_pedalling_time;
-    currentEvent = EVENT_UPDATE_PEDALLING;
-    // pedal_counter += 1;
+    currentEvent = EVENT_CONTINUE;
   }
 }
 
@@ -505,13 +502,14 @@ void state_machine()
       sendMusicComand("PREVIOUS");
       break;
     case EVENT_UPDATE_PEDALLING:
-      update_pedalling_counter();
+      // update_pedalling_counter();
       break;
     case EVENT_CONTINUE:
       turnOnIntensityLed();
       turnOnBuzzer();
       turnOnDynamicMusic();
       showSpeed();
+      update_pedalling_counter();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
 

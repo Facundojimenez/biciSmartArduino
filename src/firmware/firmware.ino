@@ -114,7 +114,7 @@ enum event_t
   EVENT_TRAINING_RECEIVED,
   EVENT_TRAINING_BUTTON,
   EVENT_TRAINING_CANCELLED,
-  EVENT_PREVIOUS_MEDIA_BUTTON,
+  EVENT_PAUSE_START_MEDIA_BUTTON,
   EVENT_NEXT_MEDIA_BUTTON,
   EVENT_TRAINING_CONCLUDED,
   EVENT_TRAINING_RESTARTED,
@@ -126,7 +126,7 @@ event_t currentEvent;
 state_t currentState;
 
 String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
-String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PREVIOUS_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
+String arrEvents[9] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PAUSE_START_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
                         "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING"};
 
 void printEvent(int eventIndex)
@@ -197,13 +197,14 @@ void checkSpeedSensor()
 
 void checkStopMusicWhenLowSpeed()
 {
-  if(currentState != STATE_TRAINING_IN_PROGRESS){ //validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
+  if(startTimeTraining == 0)
+  { //validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
     currentEvent = EVENT_CONTINUE;
     return;
   }
 
   if (!settedTrainning.dynamicMusic && speed_KMH <= LOW_SPEED) // Si esta con su propia musica y va lento, se pausa su musica
-    currentEvent = EVENT_PREVIOUS_MEDIA_BUTTON;
+    currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
 }
 
 void checkMediaButtonSensor()
@@ -223,7 +224,7 @@ void checkPlayStoptButtonSensor()
   int buttonState = digitalRead(PLAY_STOP_MEDIA_SENSOR_PIN);
   if (buttonState == HIGH)
   {
-    currentEvent = EVENT_PREVIOUS_MEDIA_BUTTON;
+    currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
   }
   else{
     currentEvent = EVENT_CONTINUE;
@@ -313,7 +314,7 @@ void checkBluetoothInterface()
 
 void checkProgress() // Verifica si termino o no, solo si el 
 {
-  if(currentState != STATE_TRAINING_IN_PROGRESS){ //validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
+  if(startTimeTraining == 0){ //validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
     currentEvent = EVENT_CONTINUE;
     return;
   }
@@ -449,7 +450,7 @@ void state_machine()
     // case EVENT_MONITORING_TRAINING:
     //  currentState = STATE_TRAINING_IN_PROGRESS;
     // break;
-    case EVENT_PREVIOUS_MEDIA_BUTTON:
+    case EVENT_PAUSE_START_MEDIA_BUTTON:
       sendMusicComand("STOP");
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -500,7 +501,9 @@ void state_machine()
     {
     case EVENT_TRAINING_RESTARTED:
       showTrainignState("Restarting");
-      sendSummary();
+      startTimeTraining = 0;
+      pedal_counter = 0;
+      kmDone = 0;
       trainingReceived = false;
       currentState = STATE_WAITING_FOR_TRAINING;
       break;

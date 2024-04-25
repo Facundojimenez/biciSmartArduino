@@ -277,7 +277,7 @@ void checkTrainingBluetoothInterface()
         // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
         String consoleCommand = Serial.readString();
         int dynamicMusic;
-        Serial.print("Comando recibido: "); // TRAINING: 10SEG 0KM DIN.MUSIC: 1
+        Serial.print("Comando recibido: "); // TRAINING: 5SEG 0KM DIN.MUSIC: 1
         Serial.println(consoleCommand);
         sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dKM DIN.MUSIC: %d", &(settedTrainning.settedTime), &(settedTrainning.settedKm), &dynamicMusic);
         if(settedTrainning.settedKm != 0 && settedTrainning.settedTime !=0)
@@ -543,6 +543,7 @@ void state_machine()
       showTrainignState("Restarting");
       startTimeTraining = 0;
       lctWaitingSummaryConfirmation = 0;
+      lctWaitingTraining = millis();
       pedal_counter = 0;
       kmDone = 0;
       trainingReceived = false;

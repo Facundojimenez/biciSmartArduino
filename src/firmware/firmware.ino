@@ -35,7 +35,7 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 #define BUZZER_PIN 3
 
 // CONTROLAR VELOCIDAD
-//float mDone;
+//float metersDone;
 //float metersDone;
 unsigned long CTPedalling;
 unsigned long LCTPedalling;
@@ -57,6 +57,17 @@ unsigned long lctMetersCalculated;
 // UMBRALES DE VELOCIDAD
 #define LOW_SPEED 7
 #define HIGH_SPEED 20
+
+enum intensity_t
+{
+  NOINTENSITY,
+  LOWINTENSITY,
+  MIDINTENSITY,
+  HIGHINTENSITY
+};
+
+intensity_t previousIntensity = NOINTENSITY;
+
 // UMBRALES ADAPTADO A METROS POR SEGUNDO
 //#define LOW_SPEED 3
 //#define HIGH_SPEED 6
@@ -79,24 +90,27 @@ unsigned long previousTime;
 // ENTRENAMIENTO
 struct tTraining
 {
-  unsigned int settedTime; //SEGUNDOS
-  unsigned int settedM; //METROS
+  unsigned int setTime; //SEGUNDOS
+  unsigned int setMeters; //METROS
   bool dynamicMusic;
 };
-tTraining settedTrainning;
+tTraining setTrainning;
 //unsigned long startTimeTraining;
 unsigned long lastTimeCalculatedTime;
+#define DEFAULTTIME 10
+#define DEFAULTMETERS 0
+#define DEFAULTDINAMICMUSIC 1
 
 // TIMEOUT ESPERANDO ENTRENAMIENTO
 #define MAX_TIME_WAITTING_TRAINING 3000 // 3SEG
-unsigned long lctWaitingTraining;
+//unsigned long lctWaitingTraining;
 bool trainingReceived = false;
 
 // RESUMEN
 struct tSummary
 {
   float timeDone;
-  float mDone;
+  float metersDone;
   float averageSpeed;
   unsigned int cantPed;
 };
@@ -189,7 +203,7 @@ void do_init()
 
   // Inicializa el tiempo
   previousTime = millis();
-  lctWaitingTraining = millis();
+  //lctWaitingTraining = millis();
 }
 
 // Funciones de atención a los sensores
@@ -244,7 +258,7 @@ void checkStopMusicWhenLowSpeed()
     return;
   }
 
-  if (!settedTrainning.dynamicMusic && speed_MS <= LOW_SPEED) // Si esta con su propia musica y va lento, se pausa su musica
+  if (!setTrainning.dynamicMusic && speed_MS <= LOW_SPEED) // Si esta con su propia musica y va lento, se pausa su musica
     currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
 }
 
@@ -305,9 +319,9 @@ void checkTrainingBluetoothInterface()
 {
   if (!trainingReceived)
   {
-    long ctWaitingTraining = millis();
-    if ((ctWaitingTraining - lctWaitingTraining) < MAX_TIME_WAITTING_TRAINING)
-    {
+    //long ctWaitingTraining = millis();
+    //if ((ctWaitingTraining - lctWaitingTraining) < MAX_TIME_WAITTING_TRAINING)
+    //{
       if (Serial.available() > 0)
       {
         // read the incoming byte:
@@ -317,37 +331,38 @@ void checkTrainingBluetoothInterface()
         Serial.print("Comando recibido: "); // TRAINING: 5SEG 0M DIN.MUSIC: 1
                                             // TRAINING: 0SEG 50M DIN.MUSIC: 1
         Serial.println(consoleCommand);
-        sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(settedTrainning.settedTime), &(settedTrainning.settedM), &dynamicMusic);
-        if( (settedTrainning.settedM != 0 && settedTrainning.settedTime !=0) || (settedTrainning.settedM == 0 && settedTrainning.settedTime == 0))
+        sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(setTrainning.setTime), &(setTrainning.setMeters), &dynamicMusic);
+        if( (setTrainning.setMeters != 0 && setTrainning.setTime !=0) || (setTrainning.setMeters == 0 && setTrainning.setTime == 0))
         {
           Serial.print("Entrenamiento Invalido");
-          settedTrainning.settedM = 0;
-          settedTrainning.settedTime = 0;
+          setTrainning.setMeters = 0;
+          setTrainning.setTime = 0;
           return ;
         }
         if (dynamicMusic)
-          settedTrainning.dynamicMusic = true;
+          setTrainning.dynamicMusic = true;
         else
-          settedTrainning.dynamicMusic = false;
+          setTrainning.dynamicMusic = false;
 
         Serial.println("Tiempo Segundos:");
-        Serial.println(settedTrainning.settedTime);
+        Serial.println(setTrainning.setTime);
         Serial.println("Metros:");
-        Serial.println(settedTrainning.settedM);
+        Serial.println(setTrainning.setMeters);
         Serial.println("Dinamic Music:");
-        Serial.println(settedTrainning.dynamicMusic);
+        Serial.println(setTrainning.dynamicMusic);
+
         currentEvent = EVENT_TRAINING_RECEIVED;
         trainingReceived = true;
       }
-    }
-    else
-    {
-      settedTrainning.settedTime = 10;
-      settedTrainning.settedM = 0;
-      settedTrainning.dynamicMusic = true;
-      trainingReceived = true;
-      currentEvent = EVENT_TRAINING_RECEIVED;
-    }
+    //}
+    // else
+    // {
+    //   setTrainning.setTime = 10;
+    //   setTrainning.setMeters = 0;
+    //   setTrainning.dynamicMusic = true;
+    //   trainingReceived = true;
+    //   currentEvent = EVENT_TRAINING_RECEIVED;
+    // }
   }
   else
   {
@@ -393,19 +408,19 @@ void checkProgress() // Verifica si termino o no, solo si el
     return;
   }
 
-  if (settedTrainning.settedTime != 0) // Si seteo por tiempo
+  if (setTrainning.setTime != 0) // Si seteo por tiempo
   {
     //long currentTime = millis();
     //long trainingTime = (currentTime - startTimeTraining) / ONE_SEC;
     //trainingTime /= ONE_MINUTE Para Minutos
-    if (summary.timeDone >= (settedTrainning.settedTime))
+    if (summary.timeDone >= (setTrainning.setTime))
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
   }
   else // Si seteo por KM
   {
-    if(summary.mDone >= settedTrainning.settedM)
+    if(summary.metersDone >= setTrainning.setMeters)
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
@@ -482,8 +497,18 @@ void state_machine()
       currentState = STATE_READY_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
-      showTrainignState("Not Received"); // Training not received -> Waiting for trainning
+      showTrainignState("Not Received"); 
       currentState = STATE_WAITING_FOR_TRAINING;
+      break;
+    case EVENT_TRAINING_BUTTON:
+      //Iniciar entrenamiento predeterminado
+      setTrainning.setTime = DEFAULTTIME;
+      setTrainning.setMeters = DEFAULTMETERS;
+      setTrainning.dynamicMusic = DEFAULTDINAMICMUSIC;
+      trainingReceived = true;
+      lctMetersCalculated = millis();
+      lastTimeCalculatedTime = millis();
+      currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     default:
       Serial.println("UNKNOWN_EVENT");
@@ -517,7 +542,7 @@ void state_machine()
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
-      trainingReceived = false;
+      //trainingReceived = false;
       //currentState = STATE_WAITING_FOR_TRAINING;
       currentState = STATE_TRAINING_FINISHED;
       break;
@@ -530,7 +555,6 @@ void state_machine()
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
-      trainingReceived = false;
       //currentState = STATE_WAITING_FOR_TRAINING;
       currentState = STATE_TRAINING_FINISHED;
       break;
@@ -571,7 +595,7 @@ void state_machine()
       break;
     case EVENT_TRAINING_CANCELLED:
       showTrainignState("Cancelled");
-      trainingReceived = false;
+      //trainingReceived = false;
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
@@ -594,16 +618,17 @@ void state_machine()
       showTrainignState("Restarting");
       //startTimeTraining = 0;
       lctWaitingSummaryConfirmation = 0;
-      lctWaitingTraining = millis();
+      //lctWaitingTraining = millis();
       //pedalCounter = 0;
-      //mDone = 0;
+      //metersDone = 0;
+      previousIntensity = NOINTENSITY;
       trainingReceived = false;
       summarySent = false;
-      settedTrainning.settedM = 0;
-      settedTrainning.settedTime = 0;
+      setTrainning.setMeters = 0;
+      setTrainning.setTime = 0;
       summary.cantPed = 0;
       summary.averageSpeed = 0;
-      summary.mDone = 0;
+      summary.metersDone = 0;
       summary.timeDone = 0;
       rang25 = false;
       rang50 = false;
@@ -648,7 +673,7 @@ void showSpeed()
 
   // lcd.print("Metros:");
   // lcd.setCursor(11,0);
-  // lcd.print(summary.mDone);
+  // lcd.print(summary.metersDone);
 
   lcd.print("Tiempo:");
   lcd.setCursor(11,0);
@@ -674,14 +699,17 @@ void turnOnIntensityLed()
   if (speedKm <= LOW_SPEED)
   {
     ledLowSpeed();
+    previousIntensity = LOWINTENSITY;
   }
   else if (speedKm < HIGH_SPEED)
   {
     ledNormalSpeed();
+    previousIntensity = MIDINTENSITY;
   }
   else
   {
     ledHighSpeed();
+    previousIntensity = HIGHINTENSITY;
   }
 }
 
@@ -705,6 +733,7 @@ void ledHighSpeed()
   analogWrite(GREEN_LED_PIN, 0);
   analogWrite(RED_LED_PIN, 255);
 }
+
 void offLed()
 {
   analogWrite(BLUE_LED_PIN, 0);
@@ -714,7 +743,7 @@ void offLed()
 
 void sendMusicComand(char* comand)
 {
-  if (!settedTrainning.dynamicMusic)
+  if (!setTrainning.dynamicMusic)
   {
     Serial.print("Enviando Comando: ");
     Serial.println(comand);
@@ -726,19 +755,19 @@ void turnOnBuzzer()
   //long currentTime = millis();
   //float trainingTime = ((float)(currentTime - startTimeTraining)) / ONE_SEC;
   float percent;
-  if (settedTrainning.settedTime != 0)
+  if (setTrainning.setTime != 0)
   {
     // float trainingTimeMin = ((float)trainingTime/ONE_MINUTE) Para Minutos;
-    percent = (summary.timeDone * 100 / (float)(settedTrainning.settedTime));
+    percent = (summary.timeDone * 100 / (float)(setTrainning.setTime));
   }
   else
   {
-    percent = (summary.mDone * 100 / (float)settedTrainning.settedM);
+    percent = (summary.metersDone * 100 / (float)setTrainning.setMeters);
   }
 
   Serial.println("Porcentaje");
   Serial.println(percent);
-  //Agregar flags por si se pasa y no suena el buzzer
+
   if (percent >= 25 && !rang25)
   {
     Serial.println("suena 25");
@@ -768,19 +797,25 @@ void turnOnBuzzer()
 
 void turnOnDynamicMusic()
 {
-  if (settedTrainning.dynamicMusic)
+  if (setTrainning.dynamicMusic)
   {
     if (speedKm <= LOW_SPEED)
     {
-      Serial.println("Sad Music");
+      if(previousIntensity != LOWINTENSITY)
+        Serial.println("Sad Music");
+      previousIntensity = LOWINTENSITY;
     }
     else if (speedKm < HIGH_SPEED)
     {
-      Serial.println("Neutral Music");
+      if(previousIntensity != MIDINTENSITY)
+        Serial.println("Neutral Music");
+      previousIntensity = MIDINTENSITY;
     }
     else
     {
-      Serial.println("Motivational Music");
+      if(previousIntensity != HIGHINTENSITY)
+        Serial.println("Motivational Music");
+      previousIntensity = HIGHINTENSITY;
     }
   }
 }
@@ -802,7 +837,7 @@ void updateDistance()
   float distanceIncrement = speed_MS * timeElapsedSeconds;
 
   // Update the total distance traveled
-  summary.mDone += distanceIncrement;
+  summary.metersDone += distanceIncrement;
 
   // Update the start time for the next calculation
   lctMetersCalculated = currentTime;
@@ -813,14 +848,14 @@ void sendSummary()
   //long currentTime = millis();
   //summary.cantPed = pedal_counter;
   //summary.timeDone = (currentTime - startTimeTraining) / ONE_SEC;
-  //summary.mDone = mDone;
-  summary.averageSpeed = summary.mDone / summary.timeDone;
+  //summary.metersDone = metersDone;
+  summary.averageSpeed = summary.metersDone / summary.timeDone;
   Serial.println("Cantidad Pedaleadas: ");
   Serial.println(summary.cantPed);
   Serial.println("Tiempo: ");
   Serial.println((summary.timeDone));
   Serial.println("Metros Recorridos: ");
-  Serial.println(summary.mDone);
+  Serial.println(summary.metersDone);
   Serial.println("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 }

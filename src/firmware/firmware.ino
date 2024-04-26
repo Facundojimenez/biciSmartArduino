@@ -19,8 +19,9 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 
 //--CONSTANTES CON NOMBRES DE LOS PINES--
 // SENSORES
-#define NUMBER_OF_SENSORS 9 // 5 + 2(BLUETOOTH) + 1 (Progreso) + 1 (pausarAutomaticamente)
+#define NUMBER_OF_SENSORS 10 // 6 + 2(BLUETOOTH) + 1 (Progreso) + 1 (pausarAutomaticamente)
 
+#define VOLUME_SENSOR_PIN A2
 #define PLAY_STOP_MEDIA_SENSOR_PIN 8
 #define MEDIA_MOVEMENT_SENSOR_PIN 7
 #define HALL_SENSOR_PIN A3
@@ -411,8 +412,14 @@ void checkProgress() // Verifica si termino o no, solo si el
   }
 }
 
+void checkVolumeSensor()
+{
+  //TODO
+}
+
 void (*check_sensor[NUMBER_OF_SENSORS])() =
 {
+  checkVolumeSensor,
   checkSpeedSensor,
   checkCancelButtonSensor,
   checkTrainingButtonSensor,

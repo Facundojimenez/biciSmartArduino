@@ -3,9 +3,12 @@
 
 TO DO:
   *Para que es la cantidad de pedaleadas?
+  *Las pedaleadas suben muy poco
 
   *Agregar el potenciometro
-
+  *El contador de vueltas vuelve a aumentar aun no estando en estado de entrenamiento
+  *La velocidad de actualizacion del contador de vueltas posiblemente no refleje la velocidad esperada debido a la espera en el simulador por la necesidad 
+  de checkear todos los otros sensores
 */
 
 #include <Wire.h>
@@ -31,23 +34,31 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 #define BUZZER_PIN 3
 
 // CONTROLAR VELOCIDAD
-unsigned long actual_pedalling_time;
-unsigned long previous_pedalling_time;
-//int pedal_counter = 0;
-float pedaling_frecuency_mHz = 0;
-float speed_MS = 0;
-int index = 0;
-float rpm = 0;
-
-unsigned long lctKmCalculated;
 //float mDone;
+//float metersDone;
+unsigned long CTPedalling;
+unsigned long LCTPedalling;
+//int pedalCounter;
+float pedallingPeriodMs;
+float speed_MS;
+float speedKm;
+int index;
+#define MAX_PERIOD_VALUE 1150
+#define MIN_PERIOD_VALUE 250
+//#define MS_TO_SECONDS_RATIO 1000
+#define MAXIMUM_PERIOD_THRESHOLD 950
+bool bikeStopped;
+// float rpm = 0;
+
+unsigned long lctMetersCalculated;
+
 
 // UMBRALES DE VELOCIDAD
-//#define LOW_SPEED 7
-//#define HIGH_SPEED 20
+#define LOW_SPEED 7
+#define HIGH_SPEED 20
 // UMBRALES ADAPTADO A METROS POR SEGUNDO
-#define LOW_SPEED 3
-#define HIGH_SPEED 6
+//#define LOW_SPEED 3
+//#define HIGH_SPEED 6
 
 
 //--CONSTANTES EXTRAS--
@@ -56,7 +67,7 @@ unsigned long lctKmCalculated;
 #define ONE_SEC 1000 // 1000 MILIS = 1SEG
 //#define CONST_CONV_CM 0.01723
 #define COMMON_WHEEL_CIRCUNFERENCE 2.1
-//#define MS_TO_KMH 3.6
+#define MS_TO_KMH 3.6
 
 // TIMEOUT PARA LEER SENSORES
 //const unsigned long MAX_SENSOR_LOOP_TIME = 50; // 
@@ -184,26 +195,42 @@ void do_init()
 // Ver las modificaciones necesarias para el calculo de velocidad
 void checkSpeedSensor()
 {
-  // TOMO EL TIEMPO ACTUAL
-  actual_pedalling_time = millis();
-  // VERIFICA CUANTO TRANSCURRIO DE TIEMPO
+  bikeStopped = false;
+  CTPedalling = millis();
 
   int valorPot = analogRead(HALL_SENSOR_PIN);
+  float frecuency = 0;
 
-  // map the value to mHz (since only maps to integer values)
-  pedaling_frecuency_mHz = map(valorPot, 0, 1023, 0, 4000);
-
-  int frecuency = 1000000 / pedaling_frecuency_mHz;
-
-  //speed_MS = ((pedaling_frecuency_mHz / 1000) * COMMON_WHEEL_CIRCUNFERENCE) * (MS_TO_KMH);
-  speed_MS = ((pedaling_frecuency_mHz / 1000) * COMMON_WHEEL_CIRCUNFERENCE);
-
-  // Serial.println(speed_MS);
-  if ((actual_pedalling_time - previous_pedalling_time) >= frecuency && pedaling_frecuency_mHz > 0)
+  pedallingPeriodMs = map(valorPot, 0, 1023, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
+  if (pedallingPeriodMs > MAXIMUM_PERIOD_THRESHOLD)
   {
-    previous_pedalling_time = actual_pedalling_time;
+    bikeStopped = true;
+    speedKm = 0;
+    speedKm = 0;
   }
+  else
+  {
+    // V = W * R
+    // W = F * 2 * PI
+    // V = F * 2 * PI * R
+    // 2 * PI * R = Diametro
+    // V = F * D
+    // V = F X D
+    // F = 1/T
+    // pero nuestro T esta en milisegundos...
+    // Entonces lo llevamos a segundos!
+    // f = 1/T = 1 / (value/1000)
+    // f = 1000 / T (regla de la oreja)
+    frecuency = ONE_SEC / pedallingPeriodMs;
+    speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
+    speedKm = speed_MS * MS_TO_KMH;
 
+    if (((CTPedalling - LCTPedalling) >= pedallingPeriodMs) && !bikeStopped)
+    {
+      LCTPedalling = CTPedalling;
+      summary.cantPed++;
+    }
+  }
   currentEvent = EVENT_CONTINUE;
 }
 
@@ -227,7 +254,8 @@ void checkMediaButtonSensor()
   {
     currentEvent = EVENT_NEXT_MEDIA_BUTTON;
   }
-  else{
+  else
+  {
     currentEvent = EVENT_CONTINUE;
   }
 }
@@ -239,7 +267,8 @@ void checkPlayStoptButtonSensor()
   {
     currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
   }
-  else{
+  else
+  {
     currentEvent = EVENT_CONTINUE;
   }
 }
@@ -251,7 +280,8 @@ void checkCancelButtonSensor()
   {
     currentEvent = EVENT_TRAINING_CANCELLED;
   }
-  else{
+  else
+  {
     currentEvent = EVENT_CONTINUE;
   }
 }
@@ -264,7 +294,8 @@ void checkTrainingButtonSensor()
   {
     currentEvent = EVENT_TRAINING_BUTTON;
   }
-  else{
+  else
+  {
     currentEvent = EVENT_CONTINUE;
   }
 }
@@ -282,11 +313,11 @@ void checkTrainingBluetoothInterface()
         // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
         String consoleCommand = Serial.readString();
         int dynamicMusic;
-        Serial.print("Comando recibido: "); // TRAINING: 5SEG 0KM DIN.MUSIC: 1
-                                            // TRAINING: 0SEG 150KM DIN.MUSIC: 1
+        Serial.print("Comando recibido: "); // TRAINING: 5SEG 0M DIN.MUSIC: 1
+                                            // TRAINING: 0SEG 50M DIN.MUSIC: 1
         Serial.println(consoleCommand);
         sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(settedTrainning.settedTime), &(settedTrainning.settedM), &dynamicMusic);
-        if(settedTrainning.settedM != 0 && settedTrainning.settedTime !=0)
+        if( (settedTrainning.settedM != 0 && settedTrainning.settedTime !=0) || (settedTrainning.settedM == 0 && settedTrainning.settedTime == 0))
         {
           Serial.print("Entrenamiento Invalido");
           settedTrainning.settedM = 0;
@@ -458,7 +489,7 @@ void state_machine()
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Started");
       //startTimeTraining = millis();
-      lctKmCalculated = millis();
+      lctMetersCalculated = millis();
       lastTimeCalculatedTime = millis();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -508,16 +539,15 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
-      turnOnIntensityLed();
-      turnOnBuzzer();
-      turnOnDynamicMusic();
-      showSpeed();
-      updatePedallingCounter();
+      //updatePedallingCounter();
       updateDistance();
       updateTime();
+      showSpeed();
+      turnOnIntensityLed();
+      turnOnDynamicMusic();
+      turnOnBuzzer();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
-
     default:
       Serial.println("UNKNOWN_EVENT");
       break;
@@ -529,7 +559,7 @@ void state_machine()
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Resumed");
       lastTimeCalculatedTime = millis();
-      lctKmCalculated = millis();
+      lctMetersCalculated = millis();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_TRAINING_CANCELLED:
@@ -558,7 +588,7 @@ void state_machine()
       //startTimeTraining = 0;
       lctWaitingSummaryConfirmation = 0;
       lctWaitingTraining = millis();
-      //pedal_counter = 0;
+      //pedalCounter = 0;
       //mDone = 0;
       trainingReceived = false;
       summarySent = false;
@@ -606,7 +636,7 @@ void showSpeed()
 
   //lcd.print("laps");
   //lcd.setCursor(11, 0);
-  ////lcd.print(pedal_counter);
+  ////lcd.print(pedalCounter);
   //lcd.print(summary.cantPed);
 
   // lcd.print("Metros:");
@@ -634,11 +664,11 @@ void showTrainignState(char* event)
 
 void turnOnIntensityLed()
 {
-  if (speed_MS <= LOW_SPEED)
+  if (speedKm <= LOW_SPEED)
   {
     ledLowSpeed();
   }
-  else if (speed_MS < HIGH_SPEED)
+  else if (speedKm < HIGH_SPEED)
   {
     ledNormalSpeed();
   }
@@ -733,11 +763,11 @@ void turnOnDynamicMusic()
 {
   if (settedTrainning.dynamicMusic)
   {
-    if (speed_MS <= LOW_SPEED)
+    if (speedKm <= LOW_SPEED)
     {
       Serial.println("Sad Music");
     }
-    else if (speed_MS < HIGH_SPEED)
+    else if (speedKm < HIGH_SPEED)
     {
       Serial.println("Neutral Music");
     }
@@ -750,7 +780,7 @@ void turnOnDynamicMusic()
 
 void updatePedallingCounter()
 {
-  //pedal_counter += 1;
+  //pedalCounter += 1;
   summary.cantPed += 1;
 }
 
@@ -759,7 +789,7 @@ void updateDistance()
   unsigned long currentTime = millis();
 
   // Calculate the time elapsed since the start (in hours)
-  float timeElapsedSeconds = ((float)(currentTime - lctKmCalculated)) / ONE_SEC; // / 3600.0; //Dejarlo a metros por segundos
+  float timeElapsedSeconds = ((float)(currentTime - lctMetersCalculated)) / ONE_SEC; // / 3600.0; //Dejarlo a metros por segundos
 
   // Calculate the distance traveled using the formula
   float distanceIncrement = speed_MS * timeElapsedSeconds;
@@ -768,7 +798,7 @@ void updateDistance()
   summary.mDone += distanceIncrement;
 
   // Update the start time for the next calculation
-  lctKmCalculated = currentTime;
+  lctMetersCalculated = currentTime;
 }
 
 void sendSummary()

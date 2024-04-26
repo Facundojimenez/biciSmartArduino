@@ -4,7 +4,6 @@
 TO DO:
   *Para que es la cantidad de pedaleadas?
 
-  *Modificar de calculo de velocidad para que sea en metros
   *Agregar el potenciometro
 
 */
@@ -284,8 +283,9 @@ void checkTrainingBluetoothInterface()
         String consoleCommand = Serial.readString();
         int dynamicMusic;
         Serial.print("Comando recibido: "); // TRAINING: 5SEG 0KM DIN.MUSIC: 1
+                                            // TRAINING: 0SEG 150KM DIN.MUSIC: 1
         Serial.println(consoleCommand);
-        sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dKM DIN.MUSIC: %d", &(settedTrainning.settedTime), &(settedTrainning.settedM), &dynamicMusic);
+        sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(settedTrainning.settedTime), &(settedTrainning.settedM), &dynamicMusic);
         if(settedTrainning.settedM != 0 && settedTrainning.settedTime !=0)
         {
           Serial.print("Entrenamiento Invalido");

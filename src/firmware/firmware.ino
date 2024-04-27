@@ -258,7 +258,7 @@ void checkStopMusicWhenLowSpeed()
     return;
   }
 
-  if (!setTrainning.dynamicMusic && speed_MS <= LOW_SPEED) // Si esta con su propia musica y va lento, se pausa su musica
+  if (!setTrainning.dynamicMusic && speedKm <= LOW_SPEED ) // Si esta con su propia musica y va lento, se pausa su musica
     currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
 }
 

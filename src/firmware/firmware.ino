@@ -97,7 +97,7 @@ struct tTraining
 tTraining setTrainning;
 //unsigned long startTimeTraining;
 unsigned long lastTimeCalculatedTime;
-#define DEFAULTTIME 10
+#define DEFAULTTIME 5
 #define DEFAULTMETERS 0
 #define DEFAULTDINAMICMUSIC 1
 
@@ -696,20 +696,18 @@ void showTrainignState(char* event)
 
 void turnOnIntensityLed()
 {
+  //Revisar la actualizacion de la intensidad
   if (speedKm <= LOW_SPEED)
   {
     ledLowSpeed();
-    previousIntensity = LOWINTENSITY;
   }
   else if (speedKm < HIGH_SPEED)
   {
     ledNormalSpeed();
-    previousIntensity = MIDINTENSITY;
   }
   else
   {
     ledHighSpeed();
-    previousIntensity = HIGHINTENSITY;
   }
 }
 

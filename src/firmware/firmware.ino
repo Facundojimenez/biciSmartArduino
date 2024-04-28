@@ -42,7 +42,7 @@
 // CONSTANTES DE ENTRENAMIENTO POR DEFAULT
 #define DEFAULTTIME 5
 #define DEFAULTMETERS 0
-#define DEFAULTDINAMICMUSIC 1
+#define DEFAULTDYNAMICMUSIC 1
 #define MAX_TIME_WAITTING_TRAINING 3000 // 3SEG
 
 // LECTURA DE SENSORES
@@ -124,7 +124,7 @@ unsigned long currentTime;
 unsigned long previousTime;
 
 // ENTRENAMIENTO
-tTraining setTrainning;
+tTraining setTraining;
 unsigned long lastTimeCalculatedTime;
 
 // TIMEOUT ESPERANDO ENTRENAMIENTO
@@ -143,7 +143,7 @@ bool rang50 = false;
 bool rang75 = false;
 bool rang100 = false;
 
-//MANEJO DE VOLUMEN
+// MANEJO DE VOLUMEN
 int lastVolumeValue;
 
 // CONSTANTES DE DEBUG DE EVENTOS Y ESTADOS (A ELIMINAR EN LA ENTREGA FINAL)
@@ -153,7 +153,7 @@ String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVE
 
 // -------------- DECLARACIÓN DE PROTOTIPOS DE FUNCIONES DE SENSORES Y ACTUADORES --------------
 void showSpeed();
-void showTrainignState(char *event);
+void showTrainingState(char *event);
 void turnOnIntensityLed();
 void ledLowSpeed();
 void ledNormalSpeed();
@@ -166,6 +166,16 @@ void sendSummary();
 void updateDistance();
 void updateTime();
 void updateVolume();
+
+/////////// DECLARACION FUNCIONES STATE MACHINE
+// void startDefaultTraining();
+void defaultTraining();
+void resetTraining();
+void resumeTraining();
+void updateTrainingState();
+void trainingState();
+void trainingFinished(char *mensaje);
+void startTraining();
 
 void printEvent(int eventIndex)
 {
@@ -320,25 +330,25 @@ void checkTrainingBluetoothInterface()
       Serial.print("Comando recibido: "); // TRAINING: 5SEG 0M DIN.MUSIC: 1
                                           // TRAINING: 0SEG 50M DIN.MUSIC: 1
       Serial.println(consoleCommand);
-      sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(setTrainning.setTime), &(setTrainning.setMeters), &dynamicMusic);
-      if ((setTrainning.setMeters != 0 && setTrainning.setTime != 0) || (setTrainning.setMeters == 0 && setTrainning.setTime == 0))
+      sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(setTraining.setTime), &(setTraining.setMeters), &dynamicMusic);
+      if ((setTraining.setMeters != 0 && setTraining.setTime != 0) || (setTraining.setMeters == 0 && setTraining.setTime == 0))
       {
         Serial.print("Entrenamiento Invalido");
-        setTrainning.setMeters = 0;
-        setTrainning.setTime = 0;
+        setTraining.setMeters = 0;
+        setTraining.setTime = 0;
         return;
       }
       if (dynamicMusic)
-        setTrainning.dynamicMusic = true;
+        setTraining.dynamicMusic = true;
       else
-        setTrainning.dynamicMusic = false;
+        setTraining.dynamicMusic = false;
 
       Serial.println("Tiempo Segundos:");
-      Serial.println(setTrainning.setTime);
+      Serial.println(setTraining.setTime);
       Serial.println("Metros:");
-      Serial.println(setTrainning.setMeters);
+      Serial.println(setTraining.setMeters);
       Serial.println("Dinamic Music:");
-      Serial.println(setTrainning.dynamicMusic);
+      Serial.println(setTraining.dynamicMusic);
 
       currentEvent = EVENT_TRAINING_RECEIVED;
       trainingReceived = true;
@@ -387,16 +397,16 @@ void checkProgress()
     return;
   }
 
-  if (setTrainning.setTime != 0) // Si seteo por tiempo
+  if (setTraining.setTime != 0) // Si seteo por tiempo
   {
-    if (summary.timeDone >= (setTrainning.setTime))
+    if (summary.timeDone >= (setTraining.setTime))
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
   }
   else // Si seteo por KM
   {
-    if (summary.metersDone >= setTrainning.setMeters)
+    if (summary.metersDone >= setTraining.setMeters)
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
@@ -426,17 +436,17 @@ void checkVolumeSensor()
 }
 
 void (*check_sensor[NUMBER_OF_SENSORS])() =
-{
-  checkSpeedSensor,
-  checkCancelButtonSensor,
-  checkTrainingButtonSensor,
-  checkPlayStoptButtonSensor,
-  checkMediaButtonSensor,
-  checkTrainingBluetoothInterface,
-  checkSummaryBluetooth,
-  checkProgress,
-  checkVolumeSensor
-};
+    {
+        checkSpeedSensor,
+        checkCancelButtonSensor,
+        checkTrainingButtonSensor,
+        checkPlayStoptButtonSensor,
+        checkMediaButtonSensor,
+        checkTrainingBluetoothInterface,
+        checkSummaryBluetooth,
+        checkProgress,
+        checkVolumeSensor};
+
 
 // Tomar Eventos
 void get_event()
@@ -468,21 +478,15 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_RECEIVED:
-      showTrainignState("Received");
+      showTrainingState("Received");
       currentState = STATE_READY_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
-      showTrainignState("Not Received");
+      showTrainingState("Not Received");
       currentState = STATE_WAITING_FOR_TRAINING;
       break;
     case EVENT_TRAINING_BUTTON:
-      // Iniciar entrenamiento predeterminado
-      setTrainning.setTime = DEFAULTTIME;
-      setTrainning.setMeters = DEFAULTMETERS;
-      setTrainning.dynamicMusic = DEFAULTDINAMICMUSIC;
-      trainingReceived = true;
-      lctMetersCalculated = millis();
-      lastTimeCalculatedTime = millis();
+      defaultTraining();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     default:
@@ -494,13 +498,12 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_BUTTON:
-      showTrainignState("Started");
-      lctMetersCalculated = millis();
-      lastTimeCalculatedTime = millis();
+
+      startTraining();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
-      showTrainignState("Waiting to Start");
+      showTrainingState("Waiting to Start");
       currentState = STATE_READY_FOR_TRAINING;
       break;
     default:
@@ -512,21 +515,17 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_CONCLUDED:
-      showTrainignState("Concluided");
-      sendSummary();
-      lctWaitingSummaryConfirmation = millis();
-      summarySent = true;
+
+      trainingFinished("Concluded");
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_TRAINING_BUTTON:
-      showTrainignState("Paused");
+      showTrainingState("Paused");
       currentState = STATE_PAUSED_TRAINING;
       break;
     case EVENT_TRAINING_CANCELLED:
-      showTrainignState("Cancelled");
-      sendSummary();
-      lctWaitingSummaryConfirmation = millis();
-      summarySent = true;
+
+      trainingFinished("Cancelled");
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_PAUSE_START_MEDIA_BUTTON:
@@ -538,12 +537,8 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
-      updateDistance();
-      updateTime();
-      showSpeed();
-      turnOnIntensityLed();
-      turnOnDynamicMusic();
-      turnOnBuzzer();
+
+      updateTrainingState();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_VOLUME_CHANGE:
@@ -558,16 +553,13 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_BUTTON:
-      showTrainignState("Resumed");
-      lastTimeCalculatedTime = millis();
-      lctMetersCalculated = millis();
+
+      resumeTraining();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_TRAINING_CANCELLED:
-      showTrainignState("Cancelled");
-      sendSummary();
-      lctWaitingSummaryConfirmation = millis();
-      summarySent = true;
+
+      trainingFinished("Cancelled");
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_CONTINUE:
@@ -583,20 +575,7 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_RESTARTED:
-      showTrainignState("Restarting");
-      lctWaitingSummaryConfirmation = 0;
-      previousIntensity = NOINTENSITY;
-      trainingReceived = false;
-      summarySent = false;
-      setTrainning.setMeters = 0;
-      setTrainning.setTime = 0;
-      summary.averageSpeed = 0;
-      summary.metersDone = 0;
-      summary.timeDone = 0;
-      rang25 = false;
-      rang50 = false;
-      rang75 = false;
-      rang100 = false;
+      resetTraining();
       currentState = STATE_WAITING_FOR_TRAINING;
       break;
     case EVENT_CONTINUE:
@@ -639,7 +618,7 @@ void showSpeed()
   lcd.print((int)speed_MS);
 }
 
-void showTrainignState(char *event)
+void showTrainingState(char *event)
 {
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -695,7 +674,7 @@ void offLed()
 
 void sendMusicComand(char *comand)
 {
-  if (!setTrainning.dynamicMusic)
+  if (!setTraining.dynamicMusic)
   {
     Serial.print("Enviando Comando: ");
     Serial.println(comand);
@@ -705,13 +684,13 @@ void sendMusicComand(char *comand)
 void turnOnBuzzer()
 {
   float percent;
-  if (setTrainning.setTime != 0)
+  if (setTraining.setTime != 0)
   {
-    percent = (summary.timeDone * 100 / (float)(setTrainning.setTime));
+    percent = (summary.timeDone * 100 / (float)(setTraining.setTime));
   }
   else
   {
-    percent = (summary.metersDone * 100 / (float)setTrainning.setMeters);
+    percent = (summary.metersDone * 100 / (float)setTraining.setMeters);
   }
 
   Serial.println("Porcentaje");
@@ -745,7 +724,7 @@ void turnOnBuzzer()
 
 void turnOnDynamicMusic()
 {
-  if (setTrainning.dynamicMusic)
+  if (setTraining.dynamicMusic)
   {
     if (speedKm <= LOW_SPEED)
     {
@@ -807,4 +786,68 @@ void updateTime()
 void updateVolume()
 {
   Serial.println(lastVolumeValue);
+}
+
+//////////// IMPLEMENTACION FUNCIONES STATE MACHINE
+
+void defaultTraining()
+{
+  setTraining.setTime = DEFAULTTIME;
+  setTraining.setMeters = DEFAULTMETERS;
+  setTraining.dynamicMusic = DEFAULTDYNAMICMUSIC;
+  trainingReceived = true;
+  lctMetersCalculated = millis();
+  lastTimeCalculatedTime = millis();
+}
+
+void resetTraining()
+{
+  showTrainingState("Restarting");
+  lctWaitingSummaryConfirmation = 0;
+  previousIntensity = NOINTENSITY;
+  trainingReceived = false;
+  summarySent = false;
+
+  setTraining.setMeters = 0;
+  setTraining.setTime = 0;
+  summary.averageSpeed = 0;
+  summary.metersDone = 0;
+  summary.timeDone = 0;
+  rang25 = false;
+  rang50 = false;
+  rang75 = false;
+  rang100 = false;
+}
+
+void resumeTraining()
+{
+  showTrainingState("Resumed");
+  lastTimeCalculatedTime = millis();
+  lctMetersCalculated = millis();
+}
+
+void updateTrainingState()
+{
+
+  updateDistance();
+  updateTime();
+  showSpeed();
+  turnOnIntensityLed();
+  turnOnDynamicMusic();
+  turnOnBuzzer();
+}
+
+void trainingFinished(char *mensaje)
+{
+  showTrainingState(mensaje);
+  sendSummary();
+  lctWaitingSummaryConfirmation = millis();
+  summarySent = true;
+}
+
+void startTraining()
+{
+  showTrainingState("Started");
+  lctMetersCalculated = millis();
+  lastTimeCalculatedTime = millis();
 }

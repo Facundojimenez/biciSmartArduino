@@ -1,26 +1,16 @@
 /*
-  TINKERCAD: https://www.tinkercad.com/things/4jSW9r8r8Eu-fantastic-crift/editel?sharecode=Mbjg4XzH3n2pD3k0aG0lXuejTw5PJrB85NU4hLtyJUw
-
-TO DO:
-  *Para que es la cantidad de pedaleadas?
-  *Las pedaleadas suben muy poco
-
-  *Agregar el potenciometro
-  *El contador de vueltas vuelve a aumentar aun no estando en estado de entrenamiento
-  *La velocidad de actualizacion del contador de vueltas posiblemente no refleje la velocidad esperada debido a la espera en el simulador por la necesidad
-  de checkear todos los otros sensores
+  LINK AL TINKERCAD: https://www.tinkercad.com/things/4jSW9r8r8Eu-fantastic-crift/editel?sharecode=Mbjg4XzH3n2pD3k0aG0lXuejTw5PJrB85NU4hLtyJUw
 */
+
+// -------------- IMPORTACIÓN DE LIBRERIAS  --------------
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-// Crear el objeto lcd dirección 0x3F y 16 columnas x 2 Filas
-LiquidCrystal_I2C lcd(0x20, 16, 2);
+// -------------- DECLARACIÓN DE DIRECTIVAS DE PRECOMPILACIÓN --------------
 
-//--CONSTANTES CON NOMBRES DE LOS PINES--
-// SENSORES
+// NOMBRES DE LOS PINES DE LOS SENSORES
 #define NUMBER_OF_SENSORS 9 // 6 + 2(BLUETOOTH) + 1 (Progreso) + 1 (pausarAutomaticamente)
-
 #define VOLUME_SENSOR_PIN A2
 #define PLAY_STOP_MEDIA_SENSOR_PIN 8
 #define MEDIA_MOVEMENT_SENSOR_PIN 7
@@ -28,104 +18,40 @@ LiquidCrystal_I2C lcd(0x20, 16, 2);
 #define TRAINING_CONTROL_PIN 2
 #define TRAINING_CANCEL_PIN 4
 
-// ACTUADORE
+// NOMBRES DE LOS PINES DE LOS ACTUADORES
 #define RED_LED_PIN 11
 #define GREEN_LED_PIN 6
 #define BLUE_LED_PIN 10
 #define BUZZER_PIN 3
 
-// CONTROLAR VELOCIDAD
-// float metersDone;
-// float metersDone;
-unsigned long CTPedalling;
-unsigned long LCTPedalling;
-// int pedalCounter;
-float pedallingPeriodMs;
-float speed_MS;
-float speedKm;
-int index;
+// CONSTANTES DE VELOCIDAD
 #define MAX_PERIOD_VALUE 1150
 #define MIN_PERIOD_VALUE 250
-// #define MS_TO_SECONDS_RATIO 1000
 #define MAXIMUM_PERIOD_THRESHOLD 950
-bool bikeStopped;
-// float rpm = 0;
-
-unsigned long lctMetersCalculated;
 
 // UMBRALES DE VELOCIDAD
 #define LOW_SPEED 7
 #define HIGH_SPEED 20
 
-enum intensity_t
-{
-  NOINTENSITY,
-  LOWINTENSITY,
-  MIDINTENSITY,
-  HIGHINTENSITY
-};
-
-intensity_t previousIntensity = NOINTENSITY;
-
-// UMBRALES ADAPTADO A METROS POR SEGUNDO
-// #define LOW_SPEED 3
-// #define HIGH_SPEED 6
-
-//--CONSTANTES EXTRAS--
+// CALCULO DE PEDALEADAS Y DISTANCIA RECORRIDA
 #define SERIAL_SPEED 9600
-// #define ONE_MINUTE 60000 // 60.000 MILIS = 1MIN
 #define ONE_SEC 1000 // 1000 MILIS = 1SEG
-// #define CONST_CONV_CM 0.01723
 #define COMMON_WHEEL_CIRCUNFERENCE 2.1
 #define MS_TO_KMH 3.6
 
-// TIMEOUT PARA LEER SENSORES
-// const unsigned long MAX_SENSOR_LOOP_TIME = 50; //
-#define MAX_SENSOR_LOOP_TIME 50 // 50 MILISEGUNDOS
-unsigned long currentTime;
-unsigned long previousTime;
-
-// ENTRENAMIENTO
-struct tTraining
-{
-  unsigned int setTime;   // SEGUNDOS
-  unsigned int setMeters; // METROS
-  bool dynamicMusic;
-};
-tTraining setTrainning;
-// unsigned long startTimeTraining;
-unsigned long lastTimeCalculatedTime;
+// CONSTANTES DE ENTRENAMIENTO POR DEFAULT
 #define DEFAULTTIME 5
 #define DEFAULTMETERS 0
 #define DEFAULTDINAMICMUSIC 1
-
-// TIMEOUT ESPERANDO ENTRENAMIENTO
 #define MAX_TIME_WAITTING_TRAINING 3000 // 3SEG
-// unsigned long lctWaitingTraining;
-bool trainingReceived = false;
 
-// RESUMEN
-struct tSummary
-{
-  float timeDone;
-  float metersDone;
-  float averageSpeed;
-  // unsigned int cantPed;
-};
-tSummary summary = {0, 0, 0};
+// LECTURA DE SENSORES
+#define MAX_SENSOR_LOOP_TIME 50 // 50 MILISEGUNDOS
 
-// TIMEOUT ESPERANDO CONFIRMACION
+// TIMEOUT DE CONFIRMACION DE ENVIO DE RESUMEN
 #define MAX_TIME_WAITTING_CONFIRMATION 3000 // 3SEG
-bool summarySent = false;
-bool lctWaitingSummaryConfirmation;
 
-// flags buzzer
-bool rang25 = false;
-bool rang50 = false;
-bool rang75 = false;
-bool rang100 = false;
-
-// ESTADOS Y EVENTOS
+// -------------- DEFINICION DE ENUMS Y TIPOS DE DATOS --------------
 enum state_t
 {
   STATE_WAITING_FOR_TRAINING,
@@ -149,12 +75,97 @@ enum event_t
   EVENT_VOLUME_CHANGE
 };
 
+enum intensity_t
+{
+  NOINTENSITY,
+  LOWINTENSITY,
+  MIDINTENSITY,
+  HIGHINTENSITY
+};
+
+struct tTraining
+{
+  unsigned int setTime;   // SEGUNDOS
+  unsigned int setMeters; // METROS
+  bool dynamicMusic;
+};
+
+struct tSummary
+{
+  float timeDone;
+  float metersDone;
+  float averageSpeed;
+};
+
+// -------------- DECLARACIÓN E INICIALIZACIÓN DE VARIABLES GLOBALES --------------
+
+// EVENTOS Y ESTADOS GLOBALES DEL SISTEMA
 event_t currentEvent;
 state_t currentState;
 
+// INICIALIZACION DE LED DISPLAY
+LiquidCrystal_I2C lcd(0x20, 16, 2);
+
+// INTENSIDAD DE ENTRENAMIENTO
+intensity_t previousIntensity = NOINTENSITY;
+
+// CONTROLAR VELOCIDAD
+unsigned long CTPedalling;
+unsigned long LCTPedalling;
+float pedallingPeriodMs;
+float speed_MS;
+float speedKm;
+int index;
+bool bikeStopped;
+unsigned long lctMetersCalculated;
+
+// TIMEOUT PARA LEER SENSORES
+unsigned long currentTime;
+unsigned long previousTime;
+
+// ENTRENAMIENTO
+tTraining setTrainning;
+unsigned long lastTimeCalculatedTime;
+
+// TIMEOUT ESPERANDO ENTRENAMIENTO
+bool trainingReceived = false;
+
+// RESUMEN
+tSummary summary = {0, 0, 0};
+
+// TIMEOUT ESPERANDO CONFIRMACION
+bool summarySent = false;
+bool lctWaitingSummaryConfirmation;
+
+// flags buzzer
+bool rang25 = false;
+bool rang50 = false;
+bool rang75 = false;
+bool rang100 = false;
+
+//MANEJO DE VOLUMEN
+int lastVolumeValue;
+
+// CONSTANTES DE DEBUG DE EVENTOS Y ESTADOS (A ELIMINAR EN LA ENTREGA FINAL)
 String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
 String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PAUSE_START_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
                         "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING", "EVENT_VOLUME_CHANGE"};
+
+// -------------- DECLARACIÓN DE PROTOTIPOS DE FUNCIONES DE SENSORES Y ACTUADORES --------------
+void showSpeed();
+void showTrainignState(char *event);
+void turnOnIntensityLed();
+void ledLowSpeed();
+void ledNormalSpeed();
+void ledHighSpeed();
+void offLed();
+void sendMusicComand(char *comand);
+void turnOnBuzzer();
+void turnOnDynamicMusic();
+void sendSummary();
+void updateDistance();
+void updateTime();
+void updateVolume();
 
 void printEvent(int eventIndex)
 {
@@ -175,7 +186,6 @@ void ledOn()
   analogWrite(RED_LED_PIN, 255);
 }
 
-// CONFIGURACION
 void do_init()
 {
   pinMode(PLAY_STOP_MEDIA_SENSOR_PIN, INPUT);
@@ -202,11 +212,8 @@ void do_init()
 
   // Inicializa el tiempo
   previousTime = millis();
-  // lctWaitingTraining = millis();
 }
 
-// Funciones de atención a los sensores
-// Ver las modificaciones necesarias para el calculo de velocidad
 void checkSpeedSensor()
 {
   bikeStopped = false;
@@ -242,24 +249,10 @@ void checkSpeedSensor()
     if (((CTPedalling - LCTPedalling) >= pedallingPeriodMs) && !bikeStopped)
     {
       LCTPedalling = CTPedalling;
-      // summary.cantPed++;
     }
   }
   currentEvent = EVENT_CONTINUE;
 }
-
-// void checkStopMusicWhenLowSpeed()
-// {
-//   // if(startTimeTraining == 0)
-//   if (summary.timeDone == 0)
-//   { // validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
-//     currentEvent = EVENT_CONTINUE;
-//     return;
-//   }
-
-//   if (!setTrainning.dynamicMusic && speedKm <= LOW_SPEED) // Si esta con su propia musica y va lento, se pausa su musica
-//     currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
-// }
 
 void checkMediaButtonSensor()
 {
@@ -318,9 +311,6 @@ void checkTrainingBluetoothInterface()
 {
   if (!trainingReceived)
   {
-    // long ctWaitingTraining = millis();
-    // if ((ctWaitingTraining - lctWaitingTraining) < MAX_TIME_WAITTING_TRAINING)
-    //{
     if (Serial.available() > 0)
     {
       // read the incoming byte:
@@ -353,15 +343,6 @@ void checkTrainingBluetoothInterface()
       currentEvent = EVENT_TRAINING_RECEIVED;
       trainingReceived = true;
     }
-    //}
-    // else
-    // {
-    //   setTrainning.setTime = 10;
-    //   setTrainning.setMeters = 0;
-    //   setTrainning.dynamicMusic = true;
-    //   trainingReceived = true;
-    //   currentEvent = EVENT_TRAINING_RECEIVED;
-    // }
   }
   else
   {
@@ -398,9 +379,8 @@ void checkSummaryBluetooth()
   }
 }
 
-void checkProgress() // Verifica si termino o no, solo si el
+void checkProgress()
 {
-  // if(startTimeTraining == 0)
   if (summary.timeDone == 0)
   { // validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
     currentEvent = EVENT_CONTINUE;
@@ -409,9 +389,6 @@ void checkProgress() // Verifica si termino o no, solo si el
 
   if (setTrainning.setTime != 0) // Si seteo por tiempo
   {
-    // long currentTime = millis();
-    // long trainingTime = (currentTime - startTimeTraining) / ONE_SEC;
-    // trainingTime /= ONE_MINUTE Para Minutos
     if (summary.timeDone >= (setTrainning.setTime))
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
@@ -425,8 +402,6 @@ void checkProgress() // Verifica si termino o no, solo si el
     }
   }
 }
-
-int lastVolumeValue;
 
 void checkVolumeSensor()
 {
@@ -451,36 +426,17 @@ void checkVolumeSensor()
 }
 
 void (*check_sensor[NUMBER_OF_SENSORS])() =
-    {
-        checkSpeedSensor,
-        checkCancelButtonSensor,
-        checkTrainingButtonSensor,
-        checkPlayStoptButtonSensor,
-        checkMediaButtonSensor,
-        checkTrainingBluetoothInterface,
-        checkSummaryBluetooth,
-        checkProgress,
-        checkVolumeSensor
-        // checkStopMusicWhenLowSpeed};
+{
+  checkSpeedSensor,
+  checkCancelButtonSensor,
+  checkTrainingButtonSensor,
+  checkPlayStoptButtonSensor,
+  checkMediaButtonSensor,
+  checkTrainingBluetoothInterface,
+  checkSummaryBluetooth,
+  checkProgress,
+  checkVolumeSensor
 };
-
-// Funciones Actuadores
-
-void showSpeed();
-void showTrainignState(char *event);
-void turnOnIntensityLed();
-void ledLowSpeed();
-void ledNormalSpeed();
-void ledHighSpeed();
-void offLed();
-void sendMusicComand(char *comand);
-void turnOnBuzzer();
-void turnOnDynamicMusic();
-void sendSummary();
-// void updatePedallingCounter();
-void updateDistance();
-void updateTime();
-void updateVolume();
 
 // Tomar Eventos
 void get_event()
@@ -539,7 +495,6 @@ void state_machine()
     {
     case EVENT_TRAINING_BUTTON:
       showTrainignState("Started");
-      // startTimeTraining = millis();
       lctMetersCalculated = millis();
       lastTimeCalculatedTime = millis();
       currentState = STATE_TRAINING_IN_PROGRESS;
@@ -561,8 +516,6 @@ void state_machine()
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
-      // trainingReceived = false;
-      // currentState = STATE_WAITING_FOR_TRAINING;
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_TRAINING_BUTTON:
@@ -574,12 +527,8 @@ void state_machine()
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
-      // currentState = STATE_WAITING_FOR_TRAINING;
       currentState = STATE_TRAINING_FINISHED;
       break;
-    // case EVENT_MONITORING_TRAINING:
-    //  currentState = STATE_TRAINING_IN_PROGRESS;
-    // break;
     case EVENT_PAUSE_START_MEDIA_BUTTON:
       sendMusicComand("STOP");
       currentState = STATE_TRAINING_IN_PROGRESS;
@@ -589,7 +538,6 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
-      // updatePedallingCounter();
       updateDistance();
       updateTime();
       showSpeed();
@@ -617,11 +565,9 @@ void state_machine()
       break;
     case EVENT_TRAINING_CANCELLED:
       showTrainignState("Cancelled");
-      // trainingReceived = false;
       sendSummary();
       lctWaitingSummaryConfirmation = millis();
       summarySent = true;
-      // currentState = STATE_WAITING_FOR_TRAINING;
       currentState = STATE_TRAINING_FINISHED;
       break;
     case EVENT_CONTINUE:
@@ -638,17 +584,12 @@ void state_machine()
     {
     case EVENT_TRAINING_RESTARTED:
       showTrainignState("Restarting");
-      // startTimeTraining = 0;
       lctWaitingSummaryConfirmation = 0;
-      // lctWaitingTraining = millis();
-      // pedalCounter = 0;
-      // metersDone = 0;
       previousIntensity = NOINTENSITY;
       trainingReceived = false;
       summarySent = false;
       setTrainning.setMeters = 0;
       setTrainning.setTime = 0;
-      // summary.cantPed = 0;
       summary.averageSpeed = 0;
       summary.metersDone = 0;
       summary.timeDone = 0;
@@ -687,15 +628,6 @@ void showSpeed()
 {
   lcd.clear();
   lcd.setCursor(0, 0);
-
-  // lcd.print("laps");
-  // lcd.setCursor(11, 0);
-  ////lcd.print(pedalCounter);
-  // lcd.print(summary.cantPed);
-
-  // lcd.print("Metros:");
-  // lcd.setCursor(11,0);
-  // lcd.print(summary.metersDone);
 
   lcd.print("Tiempo:");
   lcd.setCursor(11, 0);
@@ -772,12 +704,9 @@ void sendMusicComand(char *comand)
 
 void turnOnBuzzer()
 {
-  // long currentTime = millis();
-  // float trainingTime = ((float)(currentTime - startTimeTraining)) / ONE_SEC;
   float percent;
   if (setTrainning.setTime != 0)
   {
-    // float trainingTimeMin = ((float)trainingTime/ONE_MINUTE) Para Minutos;
     percent = (summary.timeDone * 100 / (float)(setTrainning.setTime));
   }
   else
@@ -839,12 +768,6 @@ void turnOnDynamicMusic()
   }
 }
 
-// void updatePedallingCounter()
-// {
-//   // pedalCounter += 1;
-//   summary.cantPed += 1;
-// }
-
 void updateDistance()
 {
   unsigned long currentTime = millis();
@@ -864,13 +787,7 @@ void updateDistance()
 
 void sendSummary()
 {
-  // long currentTime = millis();
-  // summary.cantPed = pedal_counter;
-  // summary.timeDone = (currentTime - startTimeTraining) / ONE_SEC;
-  // summary.metersDone = metersDone;
   summary.averageSpeed = summary.metersDone / summary.timeDone;
-  // Serial.println("Cantidad Pedaleadas: ");
-  // Serial.println(summary.cantPed);
   Serial.println("Tiempo: ");
   Serial.println((summary.timeDone));
   Serial.println("Metros Recorridos: ");

@@ -1,16 +1,8 @@
-/*
-  LINK AL TINKERCAD: https://www.tinkercad.com/things/4jSW9r8r8Eu-fantastic-crift/editel?sharecode=Mbjg4XzH3n2pD3k0aG0lXuejTw5PJrB85NU4hLtyJUw
-*/
-
-// -------------- IMPORTACIÓN DE LIBRERIAS  --------------
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-// -------------- DECLARACIÓN DE DIRECTIVAS DE PRECOMPILACIÓN --------------
-
-// NOMBRES DE LOS PINES DE LOS SENSORES
-#define NUMBER_OF_SENSORS 9 // 6 + 2(BLUETOOTH) + 1 (Progreso) + 1 (pausarAutomaticamente)
+#define NUMBER_OF_SENSORS 9
 #define VOLUME_SENSOR_PIN A2
 #define PLAY_STOP_MEDIA_SENSOR_PIN 8
 #define MEDIA_MOVEMENT_SENSOR_PIN 7
@@ -18,39 +10,31 @@
 #define TRAINING_CONTROL_PIN 2
 #define TRAINING_CANCEL_PIN 4
 
-// NOMBRES DE LOS PINES DE LOS ACTUADORES
 #define RED_LED_PIN 11
 #define GREEN_LED_PIN 6
 #define BLUE_LED_PIN 10
 #define BUZZER_PIN 3
 
-// CONSTANTES DE VELOCIDAD
 #define MAX_PERIOD_VALUE 1150
 #define MIN_PERIOD_VALUE 250
 #define MAXIMUM_PERIOD_THRESHOLD 950
 
-// UMBRALES DE VELOCIDAD
 #define LOW_SPEED 7
 #define HIGH_SPEED 20
 
-// CALCULO DE PEDALEADAS Y DISTANCIA RECORRIDA
 #define SERIAL_SPEED 9600
-#define ONE_SEC 1000 // 1000 MILIS = 1SEG
+#define ONE_SEC 1000 
 #define COMMON_WHEEL_CIRCUNFERENCE 2.1
 #define MS_TO_KMH 3.6
 
-// CONSTANTES DE ENTRENAMIENTO POR DEFAULT
 #define DEFAULTTIME 5
 #define DEFAULTMETERS 0
 #define DEFAULTDYNAMICMUSIC 1
-#define MAX_TIME_WAITTING_TRAINING 3000 // 3SEG
+#define MAX_TIME_WAITTING_TRAINING 3000 
 
-// LECTURA DE SENSORES
-#define MAX_SENSOR_LOOP_TIME 50 // 50 MILISEGUNDOS
+#define MAX_SENSOR_LOOP_TIME 50 
 
-// TIMEOUT DE CONFIRMACION DE ENVIO DE RESUMEN
-#define MAX_TIME_WAITTING_CONFIRMATION 3000 // 3SEG
-
+#define MAX_TIME_WAITTING_CONFIRMATION 3000 
 
 #define LCD_ROWS 2
 #define LCD_COLS 16
@@ -80,7 +64,6 @@
 
 #define TONE_DURATION 500
 
-// -------------- DEFINICION DE ENUMS Y TIPOS DE DATOS --------------
 enum state_t
 {
   STATE_WAITING_FOR_TRAINING,
@@ -114,8 +97,8 @@ enum intensity_t
 
 struct tTraining
 {
-  unsigned int setTime;   // SEGUNDOS
-  unsigned int setMeters; // METROS
+  unsigned int setTime;   
+  unsigned int setMeters; 
   bool dynamicMusic;
 };
 
@@ -126,19 +109,14 @@ struct tSummary
   float averageSpeed;
 };
 
-// -------------- DECLARACIÓN E INICIALIZACIÓN DE VARIABLES GLOBALES --------------
 
-// EVENTOS Y ESTADOS GLOBALES DEL SISTEMA
 event_t currentEvent;
 state_t currentState;
 
-// INICIALIZACION DE LED DISPLAY
 LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
 
-// INTENSIDAD DE ENTRENAMIENTO
 intensity_t previousIntensity = NOINTENSITY;
 
-// CONTROLAR VELOCIDAD
 unsigned long CTPedalling;
 unsigned long LCTPedalling;
 float pedallingPeriodMs;
@@ -148,39 +126,26 @@ int index;
 bool bikeStopped;
 unsigned long lctMetersCalculated;
 
-// TIMEOUT PARA LEER SENSORES
 unsigned long currentTime;
 unsigned long previousTime;
 
-// ENTRENAMIENTO
 tTraining setTraining;
 unsigned long lastTimeCalculatedTime;
 
-// TIMEOUT ESPERANDO ENTRENAMIENTO
 bool trainingReceived = false;
 
-// RESUMEN
 tSummary summary = {0, 0, 0};
 
-// TIMEOUT ESPERANDO CONFIRMACION
 bool summarySent = false;
 bool lctWaitingSummaryConfirmation;
 
-// flags buzzer
 bool rang25 = false;
 bool rang50 = false;
 bool rang75 = false;
 bool rang100 = false;
 
-// MANEJO DE VOLUMEN
 int lastVolumeValue;
 
-// CONSTANTES DE DEBUG DE EVENTOS Y ESTADOS (A ELIMINAR EN LA ENTREGA FINAL)
-String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
-String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PLAY_STOP_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
-                        "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING", "EVENT_VOLUME_CHANGE"};
-
-// -------------- DECLARACIÓN DE PROTOTIPOS DE FUNCIONES DE SENSORES Y ACTUADORES --------------
 void showSpeed();
 void showTrainingState(char *event);
 void turnOnIntensityLed();
@@ -196,8 +161,6 @@ void updateDistance();
 void updateTime();
 void updateVolume();
 
-/////////// DECLARACION FUNCIONES STATE MACHINE
-// void startDefaultTraining();
 void defaultTraining();
 void resetTraining();
 void resumeTraining();
@@ -205,18 +168,6 @@ void updateTrainingState();
 void trainingState();
 void trainingFinished(char *mensaje);
 void startTraining();
-
-void printEvent(int eventIndex)
-{
-  Serial.print("Current Event: ");
-  Serial.println(arrEvents[eventIndex]);
-}
-
-void printState(int stateIndex)
-{
-  Serial.print("Current State: ");
-  Serial.println(arrStates[stateIndex]);
-}
 
 void ledOn()
 {
@@ -245,11 +196,9 @@ void do_init()
 
   Serial.begin(SERIAL_SPEED);
 
-  // Inicializo el primer estado
   currentState = STATE_WAITING_FOR_TRAINING;
   currentEvent = EVENT_CONTINUE;
 
-  // Inicializa el tiempo
   previousTime = millis();
 }
 
@@ -270,17 +219,6 @@ void checkSpeedSensor()
   }
   else
   {
-    // V = W * R
-    // W = F * 2 * PI
-    // V = F * 2 * PI * R
-    // 2 * PI * R = Diametro
-    // V = F * D
-    // V = F X D
-    // F = 1/T
-    // pero nuestro T esta en milisegundos...
-    // Entonces lo llevamos a segundos!
-    // f = 1/T = 1 / (value/1000)
-    // f = 1000 / T (regla de la oreja)
     frecuency = ONE_SEC / pedallingPeriodMs;
     speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
     speedKm = speed_MS * MS_TO_KMH;
@@ -352,17 +290,12 @@ void checkTrainingBluetoothInterface()
   {
     if (Serial.available() > 0)
     {
-      // read the incoming byte:
-      // reemplazar Seria con el obj bluetooth una vez en la prueba de hardware
       String consoleCommand = Serial.readString();
       int dynamicMusic;
-      Serial.print("Comando recibido: "); // TRAINING: 5SEG 0M DIN.MUSIC: 1
-                                          // TRAINING: 0SEG 50M DIN.MUSIC: 1
-      Serial.println(consoleCommand);
       sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(setTraining.setTime), &(setTraining.setMeters), &dynamicMusic);
       if ((setTraining.setMeters != 0 && setTraining.setTime != 0) || (setTraining.setMeters == 0 && setTraining.setTime == 0))
       {
-        Serial.print("Entrenamiento Invalido");
+        Serial.println("Entrenamiento Invalido");
         setTraining.setMeters = 0;
         setTraining.setTime = 0;
         return;
@@ -371,13 +304,6 @@ void checkTrainingBluetoothInterface()
         setTraining.dynamicMusic = true;
       else
         setTraining.dynamicMusic = false;
-
-      Serial.println("Tiempo Segundos:");
-      Serial.println(setTraining.setTime);
-      Serial.println("Metros:");
-      Serial.println(setTraining.setMeters);
-      Serial.println("Dinamic Music:");
-      Serial.println(setTraining.dynamicMusic);
 
       currentEvent = EVENT_TRAINING_RECEIVED;
       trainingReceived = true;
@@ -399,8 +325,6 @@ void checkSummaryBluetooth()
       if (Serial.available() > 0)
       {
         String consoleCommand = Serial.readString();
-        Serial.print("Comando recibido: ");
-        Serial.println(consoleCommand);
         if (strcmp(consoleCommand.c_str(), "OK") == 0)
         {
           currentEvent = EVENT_TRAINING_RESTARTED;
@@ -421,19 +345,19 @@ void checkSummaryBluetooth()
 void checkProgress()
 {
   if (summary.timeDone == 0)
-  { // validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
+  {
     currentEvent = EVENT_CONTINUE;
     return;
   }
 
-  if (setTraining.setTime != 0) // Si seteo por tiempo
+  if (setTraining.setTime != 0)
   {
     if (summary.timeDone >= (setTraining.setTime))
     {
       currentEvent = EVENT_TRAINING_CONCLUDED;
     }
   }
-  else // Si seteo por KM
+  else 
   {
     if (summary.metersDone >= setTraining.setMeters)
     {
@@ -444,8 +368,8 @@ void checkProgress()
 
 void checkVolumeSensor()
 {
-  if (summary.timeDone == 0)
-  { // validación para que no se disparen eventos relacionados al monitoreo del entrenamiento cuando todavia no empezó.
+  if (summary.timeDone == 0 || setTraining.dynamicMusic)
+  {
     currentEvent = EVENT_CONTINUE;
     return;
   }
@@ -476,11 +400,8 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
         checkProgress,
         checkVolumeSensor};
 
-
-// Tomar Eventos
 void get_event()
 {
-  // verificar sensores
   currentTime = millis();
   if ((currentTime - previousTime) > MAX_SENSOR_LOOP_TIME)
   {
@@ -494,12 +415,9 @@ void get_event()
   }
 }
 
-// Maquina de estados
 void state_machine()
 {
   get_event();
-  printState(currentState);
-  printEvent(currentEvent);
 
   switch (currentState)
   {
@@ -614,7 +532,7 @@ void state_machine()
     break;
   }
 }
-// Sistema Embebido
+
 void setup()
 {
   do_init();
@@ -625,7 +543,6 @@ void loop()
   state_machine();
 }
 
-// Funciones Actuadores
 void showSpeed()
 {
   lcd.clear();
@@ -652,7 +569,6 @@ void showTrainingState(char *event)
 
 void turnOnIntensityLed()
 {
-  // Revisar la actualizacion de la intensidad
   if (speedKm <= LOW_SPEED)
   {
     ledLowSpeed();
@@ -716,30 +632,23 @@ void turnOnBuzzer()
     percent = (summary.metersDone * PERCENT_100 / (float)setTraining.setMeters);
   }
 
-  //Serial.println("Porcentaje");
-  //Serial.println(percent);
-
   if (percent >= PERCENT_25 && !rang25)
   {
-    //Serial.println("suena 25");
     tone(BUZZER_PIN, LOW_FRECUENCY, TONE_DURATION);
     rang25 = true;
   }
   else if (percent >= PERCENT_50 && !rang50)
   {
-    //Serial.println("suena 50");
     tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang50 = true;
   }
   else if (percent >= PERCENT_75 && !rang75)
   {
-    //Serial.println("suena 75");
     tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang75 = true;
   }
   else if (percent >= PERCENT_100 && !rang100)
   {
-    //Serial.println("suena 100");
     tone(BUZZER_PIN, HIGH_FRECUENCY, TONE_DURATION);
     rang100 = true;
   }
@@ -773,28 +682,22 @@ void turnOnDynamicMusic()
 void updateDistance()
 {
   unsigned long currentTime = millis();
-
-  // Calculate the time elapsed since the start (in hours)
-  float timeElapsedSeconds = ((float)(currentTime - lctMetersCalculated)) / ONE_SEC; // / 3600.0; //Dejarlo a metros por segundos
-
-  // Calculate the distance traveled using the formula
+  float timeElapsedSeconds = ((float)(currentTime - lctMetersCalculated)) / ONE_SEC; 
   float distanceIncrement = speed_MS * timeElapsedSeconds;
 
-  // Update the total distance traveled
   summary.metersDone += distanceIncrement;
 
-  // Update the start time for the next calculation
   lctMetersCalculated = currentTime;
 }
 
 void sendSummary()
 {
   summary.averageSpeed = summary.metersDone / summary.timeDone;
-  Serial.println("Tiempo: ");
+  Serial.print("Tiempo: ");
   Serial.println((summary.timeDone));
-  Serial.println("Metros Recorridos: ");
+  Serial.print("Metros Recorridos: ");
   Serial.println(summary.metersDone);
-  Serial.println("Velocidad Media: ");
+  Serial.print("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 }
 
@@ -808,8 +711,8 @@ void updateTime()
 
 void updateVolume()
 {
-  Serial.println("Asignando Volumen a: ");
-  Serial.print(lastVolumeValue);
+  Serial.print("Asignando Volumen a: ");
+  Serial.println(lastVolumeValue);
 }
 
 //////////// IMPLEMENTACION FUNCIONES STATE MACHINE
@@ -852,7 +755,6 @@ void resumeTraining()
 
 void updateTrainingState()
 {
-
   updateDistance();
   updateTime();
   showSpeed();

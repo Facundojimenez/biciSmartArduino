@@ -438,7 +438,6 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     default:
-      Serial.println("UNKNOWN_EVENT");
       break;
     }
     break;
@@ -454,7 +453,6 @@ void state_machine()
       currentState = STATE_READY_FOR_TRAINING;
       break;
     default:
-      Serial.println("UNKNOWN_EVENT");
       break;
     }
     break;
@@ -489,7 +487,6 @@ void state_machine()
       updateVolume();
       break;
     default:
-      Serial.println("UNKNOWN_EVENT");
       break;
     }
     break;
@@ -509,7 +506,6 @@ void state_machine()
       currentState = STATE_PAUSED_TRAINING;
       break;
     default:
-      Serial.println("UNKNOWN_EVENT");
       break;
     }
     break;
@@ -524,12 +520,10 @@ void state_machine()
       currentState = STATE_TRAINING_FINISHED;
       break;
     default:
-      Serial.println("UNKNOWN_EVENT");
       break;
     }
     break;
   default:
-    Serial.println("UNKNOWN_STATE");
     break;
   }
 }

@@ -51,6 +51,35 @@
 // TIMEOUT DE CONFIRMACION DE ENVIO DE RESUMEN
 #define MAX_TIME_WAITTING_CONFIRMATION 3000 // 3SEG
 
+
+#define LCD_ROWS 2
+#define LCD_COLS 16
+#define LCD_DIR 0x20
+#define ROW_1 1
+#define ROW_0 0
+#define COLUMN_11 11
+#define COLUMN_0 0
+
+#define RGB_HIGH 255
+#define RGB_LOW 0
+
+#define MIN_VOLUME 0
+#define MAX_VOLUME 10
+
+#define MIN_POT_VALUE 0
+#define MAX_POT_VALUE 1023
+
+#define PERCENT_25 25
+#define PERCENT_50 50
+#define PERCENT_75 75
+#define PERCENT_100 100
+
+#define LOW_FRECUENCY 200
+#define MID_FRECUENCY 300
+#define HIGH_FRECUENCY 500
+
+#define TONE_DURATION 500
+
 // -------------- DEFINICION DE ENUMS Y TIPOS DE DATOS --------------
 enum state_t
 {
@@ -104,7 +133,7 @@ event_t currentEvent;
 state_t currentState;
 
 // INICIALIZACION DE LED DISPLAY
-LiquidCrystal_I2C lcd(0x20, 16, 2);
+LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
 
 // INTENSIDAD DE ENTRENAMIENTO
 intensity_t previousIntensity = NOINTENSITY;
@@ -191,9 +220,9 @@ void printState(int stateIndex)
 
 void ledOn()
 {
-  analogWrite(BLUE_LED_PIN, 255);
-  analogWrite(GREEN_LED_PIN, 0);
-  analogWrite(RED_LED_PIN, 255);
+  analogWrite(BLUE_LED_PIN, RGB_HIGH);
+  analogWrite(GREEN_LED_PIN, RGB_LOW);
+  analogWrite(RED_LED_PIN, RGB_HIGH);
 }
 
 void do_init()
@@ -232,7 +261,7 @@ void checkSpeedSensor()
   int valorPot = analogRead(HALL_SENSOR_PIN);
   float frecuency = 0;
 
-  pedallingPeriodMs = map(valorPot, 0, 1023, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
+  pedallingPeriodMs = map(valorPot, MIN_POT_VALUE, MAX_POT_VALUE, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
   if (pedallingPeriodMs > MAXIMUM_PERIOD_THRESHOLD)
   {
     bikeStopped = true;
@@ -422,7 +451,7 @@ void checkVolumeSensor()
   }
 
   int value = analogRead(VOLUME_SENSOR_PIN);
-  int currentVolumeValue = map(value, 0, 1023, 0, 10);
+  int currentVolumeValue = map(value, MIN_POT_VALUE, MAX_POT_VALUE, MIN_VOLUME, MAX_VOLUME);
 
   if (currentVolumeValue != lastVolumeValue)
   {
@@ -606,24 +635,24 @@ void loop()
 void showSpeed()
 {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(COLUMN_0, ROW_0);
 
   lcd.print("Tiempo:");
-  lcd.setCursor(11, 0);
+  lcd.setCursor(COLUMN_11, ROW_0);
   lcd.print(summary.timeDone);
 
-  lcd.setCursor(0, 1);
+  lcd.setCursor(COLUMN_0, ROW_1);
   lcd.print("speed(M/S)");
-  lcd.setCursor(11, 1);
+  lcd.setCursor(COLUMN_11, ROW_1);
   lcd.print((int)speed_MS);
 }
 
 void showTrainingState(char *event)
 {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(COLUMN_0, ROW_0);
   lcd.print("Training");
-  lcd.setCursor(0, 1);
+  lcd.setCursor(COLUMN_0, ROW_1);
   lcd.print(event);
 }
 
@@ -646,30 +675,30 @@ void turnOnIntensityLed()
 
 void ledLowSpeed()
 {
-  analogWrite(BLUE_LED_PIN, 255);
-  analogWrite(GREEN_LED_PIN, 0);
-  analogWrite(RED_LED_PIN, 0);
+  analogWrite(BLUE_LED_PIN, RGB_HIGH);
+  analogWrite(GREEN_LED_PIN, RGB_LOW);
+  analogWrite(RED_LED_PIN, RGB_LOW);
 }
 
 void ledNormalSpeed()
 {
-  analogWrite(BLUE_LED_PIN, 0);
-  analogWrite(GREEN_LED_PIN, 255);
-  analogWrite(RED_LED_PIN, 0);
+  analogWrite(BLUE_LED_PIN, RGB_LOW);
+  analogWrite(GREEN_LED_PIN, RGB_HIGH);
+  analogWrite(RED_LED_PIN, RGB_LOW);
 }
 
 void ledHighSpeed()
 {
-  analogWrite(BLUE_LED_PIN, 0);
-  analogWrite(GREEN_LED_PIN, 0);
-  analogWrite(RED_LED_PIN, 255);
+  analogWrite(BLUE_LED_PIN, RGB_LOW);
+  analogWrite(GREEN_LED_PIN, RGB_LOW);
+  analogWrite(RED_LED_PIN, RGB_HIGH);
 }
 
 void offLed()
 {
-  analogWrite(BLUE_LED_PIN, 0);
-  analogWrite(GREEN_LED_PIN, 0);
-  analogWrite(RED_LED_PIN, 0);
+  analogWrite(BLUE_LED_PIN, RGB_LOW);
+  analogWrite(GREEN_LED_PIN, RGB_LOW);
+  analogWrite(RED_LED_PIN, RGB_LOW);
 }
 
 void sendMusicComand(char *comand)
@@ -686,38 +715,38 @@ void turnOnBuzzer()
   float percent;
   if (setTraining.setTime != 0)
   {
-    percent = (summary.timeDone * 100 / (float)(setTraining.setTime));
+    percent = (summary.timeDone * PERCENT_100 / (float)(setTraining.setTime));
   }
   else
   {
-    percent = (summary.metersDone * 100 / (float)setTraining.setMeters);
+    percent = (summary.metersDone * PERCENT_100 / (float)setTraining.setMeters);
   }
 
   Serial.println("Porcentaje");
   Serial.println(percent);
 
-  if (percent >= 25 && !rang25)
+  if (percent >= PERCENT_25 && !rang25)
   {
     Serial.println("suena 25");
-    tone(BUZZER_PIN, 200, 500);
+    tone(BUZZER_PIN, LOW_FRECUENCY, TONE_DURATION);
     rang25 = true;
   }
-  else if (percent >= 50 && !rang50)
+  else if (percent >= PERCENT_50 && !rang50)
   {
     Serial.println("suena 50");
-    tone(BUZZER_PIN, 300, 500);
+    tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang50 = true;
   }
-  else if (percent >= 75 && !rang75)
+  else if (percent >= PERCENT_75 && !rang75)
   {
     Serial.println("suena 75");
-    tone(BUZZER_PIN, 400, 500);
+    tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang75 = true;
   }
-  else if (percent >= 100 && !rang100)
+  else if (percent >= PERCENT_100 && !rang100)
   {
     Serial.println("suena 100");
-    tone(BUZZER_PIN, 500, 500);
+    tone(BUZZER_PIN, HIGH_FRECUENCY, TONE_DURATION);
     rang100 = true;
   }
 }

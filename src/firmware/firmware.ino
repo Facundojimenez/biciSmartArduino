@@ -398,7 +398,8 @@ void (*check_sensor[NUMBER_OF_SENSORS])() =
         checkTrainingBluetoothInterface,
         checkSummaryBluetooth,
         checkProgress,
-        checkVolumeSensor};
+        checkVolumeSensor
+    };
 
 void get_event()
 {

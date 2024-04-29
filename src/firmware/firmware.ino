@@ -95,7 +95,7 @@ enum event_t
   EVENT_TRAINING_RECEIVED,
   EVENT_TRAINING_BUTTON,
   EVENT_TRAINING_CANCELLED,
-  EVENT_PAUSE_START_MEDIA_BUTTON,
+  EVENT_PLAY_STOP_MEDIA_BUTTON,
   EVENT_NEXT_MEDIA_BUTTON,
   EVENT_TRAINING_CONCLUDED,
   EVENT_TRAINING_RESTARTED,
@@ -177,7 +177,7 @@ int lastVolumeValue;
 
 // CONSTANTES DE DEBUG DE EVENTOS Y ESTADOS (A ELIMINAR EN LA ENTREGA FINAL)
 String arrStates[5] = {"STATE_WAITING", "STATE_READY", "STATE_TRAINING", "STATE_PAUSED", "STATE_FINISHED"};
-String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PAUSE_START_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
+String arrEvents[10] = {"EVENT_TRAINING_RECEIVED", "EVENT_TRAINING_BUTTON", "EVENT_TRAINING_CANCELLED", "EVENT_PLAY_STOP_MEDIA_BUTTON", "EVENT_NEXT_MEDIA_BUTTON",
                         "EVENT_CONCLUDED", "EVENT_RESTARTED", "EVENT_CONTINUE", "EVENT_MONITORING", "EVENT_VOLUME_CHANGE"};
 
 // -------------- DECLARACIÓN DE PROTOTIPOS DE FUNCIONES DE SENSORES Y ACTUADORES --------------
@@ -311,7 +311,7 @@ void checkPlayStoptButtonSensor()
   int buttonState = digitalRead(PLAY_STOP_MEDIA_SENSOR_PIN);
   if (buttonState == HIGH)
   {
-    currentEvent = EVENT_PAUSE_START_MEDIA_BUTTON;
+    currentEvent = EVENT_PLAY_STOP_MEDIA_BUTTON;
   }
   else
   {
@@ -527,7 +527,6 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_BUTTON:
-
       startTraining();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -544,7 +543,6 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_CONCLUDED:
-
       trainingFinished("Concluded");
       currentState = STATE_TRAINING_FINISHED;
       break;
@@ -553,12 +551,11 @@ void state_machine()
       currentState = STATE_PAUSED_TRAINING;
       break;
     case EVENT_TRAINING_CANCELLED:
-
       trainingFinished("Cancelled");
       currentState = STATE_TRAINING_FINISHED;
       break;
-    case EVENT_PAUSE_START_MEDIA_BUTTON:
-      sendMusicComand("STOP");
+    case EVENT_PLAY_STOP_MEDIA_BUTTON:
+      sendMusicComand("PLAY/STOP");
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_NEXT_MEDIA_BUTTON:
@@ -566,7 +563,6 @@ void state_machine()
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_CONTINUE:
-
       updateTrainingState();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
@@ -582,12 +578,10 @@ void state_machine()
     switch (currentEvent)
     {
     case EVENT_TRAINING_BUTTON:
-
       resumeTraining();
       currentState = STATE_TRAINING_IN_PROGRESS;
       break;
     case EVENT_TRAINING_CANCELLED:
-
       trainingFinished("Cancelled");
       currentState = STATE_TRAINING_FINISHED;
       break;
@@ -722,30 +716,30 @@ void turnOnBuzzer()
     percent = (summary.metersDone * PERCENT_100 / (float)setTraining.setMeters);
   }
 
-  Serial.println("Porcentaje");
-  Serial.println(percent);
+  //Serial.println("Porcentaje");
+  //Serial.println(percent);
 
   if (percent >= PERCENT_25 && !rang25)
   {
-    Serial.println("suena 25");
+    //Serial.println("suena 25");
     tone(BUZZER_PIN, LOW_FRECUENCY, TONE_DURATION);
     rang25 = true;
   }
   else if (percent >= PERCENT_50 && !rang50)
   {
-    Serial.println("suena 50");
+    //Serial.println("suena 50");
     tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang50 = true;
   }
   else if (percent >= PERCENT_75 && !rang75)
   {
-    Serial.println("suena 75");
+    //Serial.println("suena 75");
     tone(BUZZER_PIN, MID_FRECUENCY, TONE_DURATION);
     rang75 = true;
   }
   else if (percent >= PERCENT_100 && !rang100)
   {
-    Serial.println("suena 100");
+    //Serial.println("suena 100");
     tone(BUZZER_PIN, HIGH_FRECUENCY, TONE_DURATION);
     rang100 = true;
   }
@@ -814,7 +808,8 @@ void updateTime()
 
 void updateVolume()
 {
-  Serial.println(lastVolumeValue);
+  Serial.println("Asignando Volumen a: ");
+  Serial.print(lastVolumeValue);
 }
 
 //////////// IMPLEMENTACION FUNCIONES STATE MACHINE

@@ -114,6 +114,7 @@ event_t currentEvent;
 state_t currentState;
 
 LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
+String currentLcd;
 
 intensity_t previousIntensity = NOINTENSITY;
 
@@ -198,6 +199,7 @@ void do_init()
 
   currentState = STATE_WAITING_FOR_TRAINING;
   currentEvent = EVENT_CONTINUE;
+  currentLcd = "";
 
   previousTime = millis();
 }
@@ -540,26 +542,29 @@ void loop()
 
 void showSpeed()
 {
-  lcd.clear();
   lcd.setCursor(COLUMN_0, ROW_0);
 
-  lcd.print("Tiempo:");
+  lcd.print("Tiempo:        ");
   lcd.setCursor(COLUMN_11, ROW_0);
   lcd.print(summary.timeDone);
 
   lcd.setCursor(COLUMN_0, ROW_1);
-  lcd.print("speed(M/S)");
+  lcd.print("speed(M/S)     ");
   lcd.setCursor(COLUMN_11, ROW_1);
   lcd.print((int)speed_MS);
 }
 
 void showTrainingState(char *event)
 {
-  lcd.clear();
-  lcd.setCursor(COLUMN_0, ROW_0);
-  lcd.print("Training");
-  lcd.setCursor(COLUMN_0, ROW_1);
-  lcd.print(event);
+  if (strcmp(event,currentLcd.c_str()) != 0)
+  {
+    lcd.clear();
+    lcd.setCursor(COLUMN_0, ROW_0);
+    lcd.print("Training");
+    lcd.setCursor(COLUMN_0, ROW_1);
+    lcd.print(event);
+    currentLcd = event;
+  }
 }
 
 void turnOnIntensityLed()
@@ -746,6 +751,7 @@ void resumeTraining()
   showTrainingState("Resumed");
   lastTimeCalculatedTime = millis();
   lctMetersCalculated = millis();
+  lcd.clear();
 }
 
 void updateTrainingState()
@@ -771,4 +777,5 @@ void startTraining()
   showTrainingState("Started");
   lctMetersCalculated = millis();
   lastTimeCalculatedTime = millis();
+  lcd.clear();
 }

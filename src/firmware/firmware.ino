@@ -1,12 +1,41 @@
+/*
+    Hello World.ino
+    2013 Copyright (c) Seeed Technology Inc.  All right reserved.
+
+    Author:Loovee
+    2013-9-18
+
+    Grove - Serial LCD RGB Backlight demo.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 
 #include <Wire.h>
-#include <LiquidCrystal_I2C.h>
+#include "rgb_lcd.h"
+#include <SoftwareSerial.h>
+
+rgb_lcd lcd;
+
+
+
 
 #define NUMBER_OF_SENSORS 9
-#define VOLUME_SENSOR_PIN A2
+#define VOLUME_SENSOR_PIN A3
 #define PLAY_STOP_MEDIA_SENSOR_PIN 8
 #define MEDIA_MOVEMENT_SENSOR_PIN 7
-#define HALL_SENSOR_PIN A3
+#define HALL_SENSOR_PIN A2
 #define TRAINING_CONTROL_PIN 2
 #define TRAINING_CANCEL_PIN 4
 
@@ -14,6 +43,9 @@
 #define GREEN_LED_PIN 6
 #define BLUE_LED_PIN 10
 #define BUZZER_PIN 3
+
+#define BLUETOOTH_TXD 5
+#define BLUETOOTH_RXD 9
 
 #define MAX_PERIOD_VALUE 1150
 #define MIN_PERIOD_VALUE 250
@@ -32,7 +64,7 @@
 #define DEFAULTDYNAMICMUSIC 1
 #define MAX_TIME_WAITTING_TRAINING 3000 
 
-#define MAX_SENSOR_LOOP_TIME 50 
+#define MAX_SENSOR_LOOP_TIME 10
 
 #define MAX_TIME_WAITTING_CONFIRMATION 3000 
 
@@ -63,6 +95,8 @@
 #define HIGH_FRECUENCY 500
 
 #define TONE_DURATION 500
+
+SoftwareSerial BT(BLUETOOTH_RXD,BLUETOOTH_TXD);
 
 enum state_t
 {
@@ -113,7 +147,7 @@ struct tSummary
 event_t currentEvent;
 state_t currentState;
 
-LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
+//LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
 String currentLcd;
 
 intensity_t previousIntensity = NOINTENSITY;
@@ -129,6 +163,9 @@ unsigned long lctMetersCalculated;
 
 unsigned long currentTime;
 unsigned long previousTime;
+
+unsigned long currentTimeLcd;
+unsigned long previousTimeLcd;
 
 tTraining setTraining;
 unsigned long lastTimeCalculatedTime;
@@ -192,9 +229,17 @@ void do_init()
 
   ledOn();
 
-  lcd.init();
-  lcd.backlight();
+  
+  //lcd.display();
+  lcd.begin(16,2);
+  
+  lcd.setRGB(RGB_HIGH, RGB_HIGH, RGB_LOW);
+  
 
+
+
+  
+  BT.begin(38400);
   Serial.begin(SERIAL_SPEED);
 
   currentState = STATE_WAITING_FOR_TRAINING;
@@ -204,32 +249,59 @@ void do_init()
   previousTime = millis();
 }
 
-void checkSpeedSensor()
-{
-  bikeStopped = false;
-  CTPedalling = millis();
+// void checkSpeedSensor()
+// {
+//   bikeStopped = false;
+//   CTPedalling = millis();
 
-  int valorPot = analogRead(HALL_SENSOR_PIN);
-  float frecuency = 0;
+//   int valorPot = analogRead(HALL_SENSOR_PIN);
+//   float frecuency = 0;
 
-  pedallingPeriodMs = map(valorPot, MIN_POT_VALUE, MAX_POT_VALUE, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
-  if (pedallingPeriodMs > MAXIMUM_PERIOD_THRESHOLD)
-  {
-    bikeStopped = true;
-    speedKm = 0;
-    speedKm = 0;
-  }
-  else
-  {
-    frecuency = ONE_SEC / pedallingPeriodMs;
+
+//   int hallSensor= analogRead(A0);
+//   //Serial.println(hallSensor);
+//   if(hallSensor< 450 || hallSensor > 550)
+//   {
+//     Serial.println("Vuelta Detectada");
+//   }
+
+//   pedallingPeriodMs = map(valorPot, MIN_POT_VALUE, MAX_POT_VALUE, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
+//   if (pedallingPeriodMs > MAXIMUM_PERIOD_THRESHOLD)
+//   {
+//     bikeStopped = true;
+//     speedKm = 0;
+//     speedKm = 0;
+//   }
+//   else
+//   {
+//     frecuency = ONE_SEC / pedallingPeriodMs;
+//     speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
+//     speedKm = speed_MS * MS_TO_KMH;
+
+//     if (((CTPedalling - LCTPedalling) >= pedallingPeriodMs) && !bikeStopped)
+//     {
+//       LCTPedalling = CTPedalling;
+//     }
+//   }
+//   currentEvent = EVENT_CONTINUE;
+// }
+volatile unsigned long lastActivationTime=0;
+volatile float frecuency =0;
+void checkSpeedSensor(){
+
+   int sensorValue = analogRead(A0);  
+  // Serial.println(sensorValue);
+  if ((sensorValue > 550 || sensorValue < 400)) {
+    frecuency = 1000/(millis() - lastActivationTime);  
+    //Serial.print("Frequency of Hall Sensor Activation: ");
+    //Serial.print(frecuency);
+    //Serial.println(" Hz");
+    lastActivationTime = millis();  
+
     speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
     speedKm = speed_MS * MS_TO_KMH;
-
-    if (((CTPedalling - LCTPedalling) >= pedallingPeriodMs) && !bikeStopped)
-    {
-      LCTPedalling = CTPedalling;
-    }
   }
+
   currentEvent = EVENT_CONTINUE;
 }
 
@@ -542,16 +614,22 @@ void loop()
 
 void showSpeed()
 {
-  lcd.setCursor(COLUMN_0, ROW_0);
+  currentTimeLcd=millis();
+  if ((currentTimeLcd - previousTimeLcd) > 500){
+      lcd.setCursor(COLUMN_0, ROW_0);
 
-  lcd.print("Tiempo:        ");
-  lcd.setCursor(COLUMN_11, ROW_0);
-  lcd.print(summary.timeDone);
+      lcd.print("Tiempo:        ");
+      lcd.setCursor(COLUMN_11, ROW_0);
+      lcd.print(summary.timeDone);
 
-  lcd.setCursor(COLUMN_0, ROW_1);
-  lcd.print("speed(M/S)     ");
-  lcd.setCursor(COLUMN_11, ROW_1);
-  lcd.print((int)speed_MS);
+      lcd.setCursor(COLUMN_0, ROW_1);
+      lcd.print("speed(M/S)     ");
+      lcd.setCursor(COLUMN_11, ROW_1);
+      lcd.print((int)speed_MS);
+
+      previousTimeLcd=currentTimeLcd;
+  }
+  
 }
 
 void showTrainingState(char *event)
@@ -588,6 +666,7 @@ void ledLowSpeed()
   analogWrite(BLUE_LED_PIN, RGB_HIGH);
   analogWrite(GREEN_LED_PIN, RGB_LOW);
   analogWrite(RED_LED_PIN, RGB_LOW);
+  lcd.setRGB(RGB_LOW,  RGB_LOW, RGB_HIGH);
 }
 
 void ledNormalSpeed()
@@ -595,6 +674,7 @@ void ledNormalSpeed()
   analogWrite(BLUE_LED_PIN, RGB_LOW);
   analogWrite(GREEN_LED_PIN, RGB_HIGH);
   analogWrite(RED_LED_PIN, RGB_LOW);
+  lcd.setRGB(RGB_LOW,  RGB_HIGH, RGB_LOW);
 }
 
 void ledHighSpeed()
@@ -602,6 +682,8 @@ void ledHighSpeed()
   analogWrite(BLUE_LED_PIN, RGB_LOW);
   analogWrite(GREEN_LED_PIN, RGB_LOW);
   analogWrite(RED_LED_PIN, RGB_HIGH);
+  lcd.setRGB(RGB_HIGH,  RGB_LOW, RGB_LOW);
+
 }
 
 void offLed()
@@ -711,8 +793,8 @@ void updateTime()
 
 void updateVolume()
 {
-  Serial.print("Asignando Volumen a: ");
-  Serial.println(lastVolumeValue);
+  //Serial.print("Asignando Volumen a: ");
+  //Serial.println(lastVolumeValue);
 }
 
 //////////// IMPLEMENTACION FUNCIONES STATE MACHINE

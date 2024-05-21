@@ -39,13 +39,13 @@ rgb_lcd lcd;
 #define TRAINING_CONTROL_PIN 2
 #define TRAINING_CANCEL_PIN 4
 
-#define RED_LED_PIN 11
+#define RED_LED_PIN 9
 #define GREEN_LED_PIN 6
-#define BLUE_LED_PIN 10
+#define BLUE_LED_PIN 5
 #define BUZZER_PIN 3
 
-#define BLUETOOTH_TXD 5
-#define BLUETOOTH_RXD 9
+#define BLUETOOTH_TXD 11
+#define BLUETOOTH_RXD 10
 
 #define MAX_PERIOD_VALUE 1150
 #define MIN_PERIOD_VALUE 250
@@ -289,8 +289,8 @@ volatile unsigned long lastActivationTime=0;
 volatile float frecuency =0;
 void checkSpeedSensor(){
 
-   int sensorValue = analogRead(A0);  
-  // Serial.println(sensorValue);
+   int sensorValue = analogRead(A2);  
+   Serial.println(sensorValue);
   if ((sensorValue > 550 || sensorValue < 400)) {
     frecuency = 1000/(millis() - lastActivationTime);  
     //Serial.print("Frequency of Hall Sensor Activation: ");
@@ -362,11 +362,11 @@ void checkTrainingBluetoothInterface()
 {
   if (!trainingReceived)
   {
-    if (Serial.available() > 0)
+    if (BT.available() > 0)
     {
-      String consoleCommand = Serial.readString();
+      String consoleCommand = BT.readString();
       int dynamicMusic;
-      sscanf(consoleCommand.c_str(), "TRAINING: %dSEG %dM DIN.MUSIC: %d", &(setTraining.setTime), &(setTraining.setMeters), &dynamicMusic);
+      sscanf(consoleCommand.c_str(), "%d %d %d", &(setTraining.setTime), &(setTraining.setMeters), &dynamicMusic);
       if ((setTraining.setMeters != 0 && setTraining.setTime != 0) || (setTraining.setMeters == 0 && setTraining.setTime == 0))
       {
         Serial.println("Entrenamiento Invalido");

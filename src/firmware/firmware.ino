@@ -300,34 +300,46 @@ void do_init() {
 //}
 volatile unsigned long lastActivationTime = 0;
 volatile unsigned long currentActivationTime = 0;
+volatile unsigned long newacttime  = 0;
 volatile unsigned long timediff = 0;
 float speed_MM_MS = 0;
 
-#define UPPER_SENSOR_HALL_THRESHOLD 550
-#define LOWER_SENSOR_HALL_THRESHOLD 450
+#define UPPER_SENSOR_HALL_THRESHOLD 600
+#define LOWER_SENSOR_HALL_THRESHOLD 350
 #define BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM 2200
+
+float vectorVelocidades[3]={0};
+int i = 3;
+
+  bool acabaDePedalear = false;
 
 
 void checkSpeedSensor() {
-
-  if (currentActivationTime - lastActivationTime > 2000) {
+  newacttime = millis();
+  if (newacttime - lastActivationTime > 2000) {
     speed_MS = 0;
     speed_KMH = 0;
     speed_MM_MS = 0;
   }
-
   int sensorValue = analogRead(HALL_SENSOR_PIN);
   Serial.println(sensorValue);
-  if ((sensorValue > UPPER_SENSOR_HALL_THRESHOLD || sensorValue < LOWER_SENSOR_HALL_THRESHOLD)) {
+//  if ((sensorValue > UPPER_SENSOR_HALL_THRESHOLD || sensorValue < LOWER_SENSOR_HALL_THRESHOLD)) {
+  if (!acabaDePedalear && sensorValue < LOWER_SENSOR_HALL_THRESHOLD) {
     currentActivationTime = millis();
     if (lastActivationTime > 0) {
       timediff = currentActivationTime - lastActivationTime;
       speed_MM_MS = BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM / timediff;
       speed_KMH = speed_MM_MS * 3.6;
-      speed_MS = speed_MM_MS;
+      speed_MS = speed_MM_MS;        
+      }
+    }
+      else {
+    acabaDePedalear = false;
     }
     lastActivationTime = currentActivationTime;
+    acabaDePedalear = true;
   }
+
 }
 
 void checkMediaButtonSensor() {

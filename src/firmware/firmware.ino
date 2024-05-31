@@ -208,6 +208,10 @@ void ledOn() {
   analogWrite(RED_LED_PIN, RGB_HIGH);
 }
 
+#define BLUETOOTH_SPEED 38400
+#define LED_NUMBER_OF_ROWS 2
+#define LED_NUMBER_OF_COLUMNS 16
+
 void do_init() {
   pinMode(PLAY_STOP_MEDIA_SENSOR_PIN, INPUT);
   pinMode(MEDIA_MOVEMENT_SENSOR_PIN, INPUT);
@@ -224,7 +228,7 @@ void do_init() {
 
 
   //lcd.display();
-  lcd.begin(16, 2);
+  lcd.begin(LED_NUMBER_OF_COLUMNS, LED_NUMBER_OF_ROWS);
 
   lcd.setRGB(RGB_HIGH, RGB_HIGH, RGB_LOW);
 
@@ -232,7 +236,7 @@ void do_init() {
 
 
 
-  BT.begin(38400);
+  BT.begin(BLUETOOTH_SPEED);
   Serial.begin(SERIAL_SPEED);
 
   currentState = STATE_WAITING_FOR_TRAINING;
@@ -242,62 +246,7 @@ void do_init() {
   previousTime = millis();
 }
 
-// void checkSpeedSensor()
-// {
-//   bikeStopped = false;
-//   CTPedalling = millis();
 
-//   int valorPot = analogRead(HALL_SENSOR_PIN);
-//   float frecuency = 0;
-
-
-//   int hallSensor= analogRead(A0);
-//   //Serial.println(hallSensor);
-//   if(hallSensor< 450 || hallSensor > 550)
-//   {
-//     Serial.println("Vuelta Detectada");
-//   }
-
-//   pedallingPeriodMs = map(valorPot, MIN_POT_VALUE, MAX_POT_VALUE, MAX_PERIOD_VALUE, MIN_PERIOD_VALUE);
-//   if (pedallingPeriodMs > MAXIMUM_PERIOD_THRESHOLD)
-//   {
-//     bikeStopped = true;
-//     speedKm = 0;
-//     speedKm = 0;
-//   }
-//   else
-//   {
-//     frecuency = ONE_SEC / pedallingPeriodMs;
-//     speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
-//     speedKm = speed_MS * MS_TO_KMH;
-
-//     if (((CTPedalling - LCTPedalling) >= pedallingPeriodMs) && !bikeStopped)
-//     {
-//       LCTPedalling = CTPedalling;
-//     }
-//   }
-//   currentEvent = EVENT_CONTINUE;
-// }
-
-//volatile unsigned long lastActivationTime=0;
-//volatile float frecuency =0;
-//void checkSpeedSensor(){
-//
-//   int sensorValue = analogRead(A2);
-//   Serial.println(sensorValue);
-//  if ((sensorValue > 550 || sensorValue < 400)) {
-//    frecuency = 1000/(millis() - lastActivationTime);
-//    //Serial.print("Frequency of Hall Sensor Activation: ");
-//    //Serial.print(frecuency);
-//    //Serial.println(" Hz");
-//    lastActivationTime = millis();
-//
-//    speed_MS = frecuency * COMMON_WHEEL_CIRCUNFERENCE;
-//    speedKm = speed_MS * MS_TO_KMH;
-//  }
-//
-//  currentEvent = EVENT_CONTINUE;
-//}
 volatile unsigned long lastActivationTime = 0;
 volatile unsigned long currentActivationTime = 0;
 volatile unsigned long newacttime  = 0;
@@ -305,42 +254,69 @@ volatile unsigned long timediff = 0;
 float speed_MM_MS = 0;
 
 #define UPPER_SENSOR_HALL_THRESHOLD 600
-#define LOWER_SENSOR_HALL_THRESHOLD 350
+#define LOWER_SENSOR_HALL_THRESHOLD 400
 #define BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM 2200
 
-float vectorVelocidades[3]={0};
-int i = 3;
 
-  bool acabaDePedalear = false;
+// si
+// si
+
+// si
+
+// no
+
+// si
+
+// no
+//
+// lee 5ms positivo toma
+// lee 10ms positivo no toma
+// lee 15ms negativo toma
+// lee 20ms negativo no toma
+// lee 25ms positivo toma
+// lee 30ms negativo toma
+// lee 35ms negativo no toma
+
+// si la lectura anterior es un positivo pero la lectura actual es un positivo -> pasar
+// si la lectura anterior es positivo y la lectura actual es negativo -> cambiar lectura anterior a negativo
+// si la lectura anterior es negativo y la lectura actual es positivo -> ingresa
 
 
+
+#define BIKE_IS_STOPPED_TIME 2000
+
+bool acabaDePedalear = false;
+// si
+#define MS_TO_KM_H_CONVERSION_CONSTANT  3.6
 void checkSpeedSensor() {
   newacttime = millis();
-  if (newacttime - lastActivationTime > 2000) {
+  if (newacttime - lastActivationTime > BIKE_IS_STOPPED_TIME) {
     speed_MS = 0;
     speed_KMH = 0;
     speed_MM_MS = 0;
   }
   int sensorValue = analogRead(HALL_SENSOR_PIN);
-  Serial.println(sensorValue);
-//  if ((sensorValue > UPPER_SENSOR_HALL_THRESHOLD || sensorValue < LOWER_SENSOR_HALL_THRESHOLD)) {
+  //Serial.println(sensorValue);
+  //  if ((sensorValue > UPPER_SENSOR_HALL_THRESHOLD || sensorValue < LOWER_SENSOR_HALL_THRESHOLD)) {
   if (!acabaDePedalear && sensorValue < LOWER_SENSOR_HALL_THRESHOLD) {
     currentActivationTime = millis();
     if (lastActivationTime > 0) {
       timediff = currentActivationTime - lastActivationTime;
-      speed_MM_MS = BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM / timediff;
-      speed_KMH = speed_MM_MS * 3.6;
-      speed_MS = speed_MM_MS;        
-      }
+      speed_MS = BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM / (float)timediff;
+      speed_KMH = speed_MM_MS * MS_TO_KM_H_CONVERSION_CONSTANT;
+      //speed_MS = speed_MM_MS;
+
     }
-      else {
-    acabaDePedalear = false;
-    }
-    lastActivationTime = currentActivationTime;
     acabaDePedalear = true;
   }
-
+  else {
+    acabaDePedalear = false;
+  }
+  lastActivationTime = currentActivationTime;
+  Serial.println(speed_MS);
 }
+
+
 
 void checkMediaButtonSensor() {
   int buttonState = digitalRead(MEDIA_MOVEMENT_SENSOR_PIN);
@@ -591,10 +567,10 @@ void setup() {
 void loop() {
   state_machine();
 }
-
+#define LED_UPDATE_SPEED_TIME 500
 void showSpeed() {
   currentTimeLcd = millis();
-  if ((currentTimeLcd - previousTimeLcd) > 500) {
+  if ((currentTimeLcd - previousTimeLcd) > LED_UPDATE_SPEED_TIME) {
     lcd.setCursor(COLUMN_0, ROW_0);
 
     lcd.print("Tiempo:        ");
@@ -604,7 +580,8 @@ void showSpeed() {
     lcd.setCursor(COLUMN_0, ROW_1);
     lcd.print("speed(M/S)     ");
     lcd.setCursor(COLUMN_11, ROW_1);
-    lcd.print((int)speed_MS);
+    lcd.print(speed_MS);
+    // Serial.println(speed_MS);
 
     previousTimeLcd = currentTimeLcd;
   }

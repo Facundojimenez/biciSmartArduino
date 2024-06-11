@@ -51,8 +51,8 @@ rgb_lcd lcd;
 #define MIN_PERIOD_VALUE 250
 #define MAXIMUM_PERIOD_THRESHOLD 950
 
-#define LOW_SPEED 7
-#define HIGH_SPEED 20
+#define LOW_SPEED 4
+#define HIGH_SPEED 8
 
 #define SERIAL_SPEED 9600
 #define ONE_SEC 1000
@@ -599,9 +599,9 @@ void showTrainingState(char *event) {
 }
 
 void turnOnIntensityLed() {
-  if (speed_KMH <= LOW_SPEED) {
+  if (speed_MS <= LOW_SPEED) {
     ledLowSpeed();
-  } else if (speed_KMH < HIGH_SPEED) {
+  } else if (speed_MS < HIGH_SPEED) {
     ledNormalSpeed();
   } else {
     ledHighSpeed();
@@ -670,22 +670,37 @@ void turnOnBuzzer() {
 
 void turnOnDynamicMusic() {
   if (setTraining.dynamicMusic) {
-    if (speed_KMH <= LOW_SPEED) {
+    if (speed_MS <= LOW_SPEED) {
       if (previousIntensity != LOWINTENSITY)
+      {
         Serial.println("Sad Music");
-      previousIntensity = LOWINTENSITY;
-    } else if (speed_KMH < HIGH_SPEED) {
+        BT.println("Sad Music");
+        previousIntensity = LOWINTENSITY;
+      }
+
+
+    } else if (speed_MS < HIGH_SPEED) {
       if (previousIntensity != MIDINTENSITY)
+      {
         Serial.println("Neutral Music");
-      previousIntensity = MIDINTENSITY;
+        BT.println("Neutral Music");
+        previousIntensity = MIDINTENSITY;
+      }
+
+
     } else {
       if (previousIntensity != HIGHINTENSITY)
+      {
         Serial.println("Motivational Music");
-      previousIntensity = HIGHINTENSITY;
+
+        BT.println("Motivational Music");
+        previousIntensity = HIGHINTENSITY;
+      }
+
     }
 
-    BT.print("ESTADO ACTUAL MUSICA DINAMICA: ");
-    BT.println(previousIntensity);
+    // BT.print("ESTADO ACTUAL MUSICA DINAMICA: ");
+    //BT.println(previousIntensity);
   }
 }
 

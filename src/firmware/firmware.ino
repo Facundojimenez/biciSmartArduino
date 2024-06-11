@@ -96,7 +96,20 @@ rgb_lcd lcd;
 
 #define TONE_DURATION 500
 
-SoftwareSerial BT(BLUETOOTH_RXD, BLUETOOTH_TXD);
+
+#define UPPER_SENSOR_HALL_THRESHOLD 600
+#define LOWER_SENSOR_HALL_THRESHOLD 400
+#define BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM 2200
+
+#define BIKE_IS_STOPPED_TIME 2000
+
+
+#define BLUETOOTH_SPEED 38400
+#define LED_NUMBER_OF_ROWS 2
+#define LED_NUMBER_OF_COLUMNS 16
+
+#define MS_TO_KM_H_CONVERSION_CONSTANT  3.6
+#define LED_UPDATE_SPEED_TIME 500
 
 enum state_t {
   STATE_WAITING_FOR_TRAINING,
@@ -138,11 +151,11 @@ struct tSummary {
   float averageSpeed;
 };
 
-
+SoftwareSerial BT(BLUETOOTH_RXD, BLUETOOTH_TXD);
 event_t currentEvent;
 state_t currentState;
 
-//LiquidCrystal_I2C lcd(LCD_DIR, LCD_COLS, LCD_ROWS);
+
 String currentLcd;
 
 intensity_t previousIntensity = NOINTENSITY;
@@ -179,6 +192,15 @@ bool rang100 = false;
 
 int lastVolumeValue;
 
+
+volatile unsigned long lastActivationTime = 0;
+volatile unsigned long currentActivationTime = 0;
+volatile unsigned long newacttime  = 0;
+volatile unsigned long timediff = 0;
+float speed_MM_MS = 0;
+
+bool acabaDePedalear = false;
+
 void showSpeed();
 void showTrainingState(char *event);
 void turnOnIntensityLed();
@@ -207,10 +229,6 @@ void ledOn() {
   analogWrite(GREEN_LED_PIN, RGB_LOW);
   analogWrite(RED_LED_PIN, RGB_HIGH);
 }
-
-#define BLUETOOTH_SPEED 38400
-#define LED_NUMBER_OF_ROWS 2
-#define LED_NUMBER_OF_COLUMNS 16
 
 void do_init() {
   pinMode(PLAY_STOP_MEDIA_SENSOR_PIN, INPUT);
@@ -247,47 +265,7 @@ void do_init() {
 }
 
 
-volatile unsigned long lastActivationTime = 0;
-volatile unsigned long currentActivationTime = 0;
-volatile unsigned long newacttime  = 0;
-volatile unsigned long timediff = 0;
-float speed_MM_MS = 0;
 
-#define UPPER_SENSOR_HALL_THRESHOLD 600
-#define LOWER_SENSOR_HALL_THRESHOLD 400
-#define BIKE_WHEEL_CIRCUNFERENCE_PERIMETER_MM 2200
-
-
-// si
-// si
-
-// si
-
-// no
-
-// si
-
-// no
-//
-// lee 5ms positivo toma
-// lee 10ms positivo no toma
-// lee 15ms negativo toma
-// lee 20ms negativo no toma
-// lee 25ms positivo toma
-// lee 30ms negativo toma
-// lee 35ms negativo no toma
-
-// si la lectura anterior es un positivo pero la lectura actual es un positivo -> pasar
-// si la lectura anterior es positivo y la lectura actual es negativo -> cambiar lectura anterior a negativo
-// si la lectura anterior es negativo y la lectura actual es positivo -> ingresa
-
-
-
-#define BIKE_IS_STOPPED_TIME 2000
-
-bool acabaDePedalear = false;
-// si
-#define MS_TO_KM_H_CONVERSION_CONSTANT  3.6
 void checkSpeedSensor() {
   newacttime = millis();
   if (newacttime - lastActivationTime > BIKE_IS_STOPPED_TIME) {
@@ -567,7 +545,7 @@ void setup() {
 void loop() {
   state_machine();
 }
-#define LED_UPDATE_SPEED_TIME 500
+
 void showSpeed() {
   currentTimeLcd = millis();
   if ((currentTimeLcd - previousTimeLcd) > LED_UPDATE_SPEED_TIME) {
@@ -699,8 +677,7 @@ void turnOnDynamicMusic() {
 
     }
 
-    // BT.print("ESTADO ACTUAL MUSICA DINAMICA: ");
-    //BT.println(previousIntensity);
+
   }
 }
 
@@ -762,6 +739,8 @@ void resetTraining() {
   previousIntensity = NOINTENSITY;
   trainingReceived = false;
   summarySent = false;
+
+  lcd.setRGB(RGB_LOW, RGB_LOW, RGB_HIGH);
 
   setTraining.setMeters = 0;
   setTraining.setTime = 0;

@@ -58,7 +58,6 @@ void ledOn()
   analogWrite(RED_LED_PIN, RGB_HIGH);
 }
 
-
 void ledLowSpeed()
 {
   analogWrite(BLUE_LED_PIN, RGB_HIGH);

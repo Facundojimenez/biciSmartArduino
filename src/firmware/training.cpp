@@ -2,15 +2,17 @@
 #include "definitions.h"
 
 tTraining setTraining;
+intensity_t previousIntensity = NOINTENSITY;
+tSummary summary = { 0, 0, 0 };
 bool trainingReceived;
+//updateTime y updateDistance
 unsigned long lctMetersCalculated;
 unsigned long lastTimeCalculatedTime;
-bool lctWaitingSummaryConfirmation;
-intensity_t previousIntensity = NOINTENSITY;
+//bool lctWaitingSummaryConfirmation;
 bool summarySent;
-tSummary summary = { 0, 0, 0 };
 
-void defaultTraining() {
+void defaultTraining() 
+{
   setTraining.setTime = DEFAULTTIME;
   setTraining.setMeters = DEFAULTMETERS;
   setTraining.dynamicMusic = DEFAULTDYNAMICMUSIC;
@@ -19,9 +21,10 @@ void defaultTraining() {
   lastTimeCalculatedTime = millis();
 }
 
-void resetTraining() {
+void resetTraining()
+{
   showTrainingState("Restarting");
-  lctWaitingSummaryConfirmation = 0;
+  //lctWaitingSummaryConfirmation = 0;
   previousIntensity = NOINTENSITY;
   trainingReceived = false;
   summarySent = false;
@@ -40,14 +43,16 @@ void resetTraining() {
   rang100 = false;
 }
 
-void resumeTraining() {
+void resumeTraining()
+{
   showTrainingState("Resumed");
   lastTimeCalculatedTime = millis();
   lctMetersCalculated = millis();
   lcd.clear();
 }
 
-void updateTrainingState() {
+void updateTrainingState() 
+{
   updateDistance();
   updateTime();
   showSpeed();
@@ -56,14 +61,16 @@ void updateTrainingState() {
   turnOnBuzzer();
 }
 
-void trainingFinished(const char *mensaje) {
+void trainingFinished(const char *mensaje) 
+{
   showTrainingState(mensaje);
   sendSummary();
-  lctWaitingSummaryConfirmation = millis();
+  //lctWaitingSummaryConfirmation = millis();
   summarySent = true;
 }
 
-void startTraining() {
+void startTraining() 
+{
   showTrainingState("Started");
   lctMetersCalculated = millis();
   lastTimeCalculatedTime = millis();

@@ -15,8 +15,7 @@ void sendMusicComand(const char *command)
     Serial.print("Enviando Comando: ");
     Serial.println(command);
 
-    BT.print("Enviando Comando: ");
-    BT.println(command);
+    BT.print(command);
   }
 }
 
@@ -30,12 +29,13 @@ void sendSummary()
   Serial.print("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 
+  BT.print("Ended");
   BT.print("Tiempo: ");
-  BT.println((summary.timeDone));
+  BT.print((summary.timeDone));
   BT.print("Metros Recorridos: ");
-  BT.println(summary.metersDone);
+  BT.print(summary.metersDone);
   BT.print("Velocidad Media: ");
-  BT.println(summary.averageSpeed);
+  BT.print(summary.averageSpeed);
 }
 
 void turnOnDynamicMusic()
@@ -47,7 +47,7 @@ void turnOnDynamicMusic()
       if (previousIntensity != LOWINTENSITY)
       {
         Serial.println("Sad Music");
-        BT.println("Sad Music");
+        BT.print("Sad Music");
         previousIntensity = LOWINTENSITY;
       }
     }
@@ -56,7 +56,7 @@ void turnOnDynamicMusic()
       if (previousIntensity != MIDINTENSITY)
       {
         Serial.println("Neutral Music");
-        BT.println("Neutral Music");
+        BT.print("Neutral Music");
         previousIntensity = MIDINTENSITY;
       }
     }
@@ -66,7 +66,7 @@ void turnOnDynamicMusic()
       {
         Serial.println("Motivational Music");
 
-        BT.println("Motivational Music");
+        BT.print("Motivational Music");
         previousIntensity = HIGHINTENSITY;
       }
     }

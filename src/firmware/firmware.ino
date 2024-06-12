@@ -1,35 +1,25 @@
 #include "definitions.h"
 #include "Arduino.h"
-
+//lcd
 rgb_lcd lcd;
-
-event_t currentEvent;
-state_t currentState;
-
 String currentLcd;
-
-unsigned long CTPedalling;
-unsigned long LCTPedalling;
-float pedallingPeriodMs;
-float speed_MS;
-float speed_KMH;
-int index;
-bool bikeStopped;
-
-unsigned long currentTime;
-unsigned long previousTime;
-
 unsigned long currentTimeLcd;
 unsigned long previousTimeLcd;
-
+//enum
+event_t currentEvent;
+state_t currentState;
+//calcular velocidad
+float speed_MS;
+//getEvent
+int index;
+unsigned long previousTime;
+//buzzer
 bool rang25 = false;
 bool rang50 = false;
 bool rang75 = false;
 bool rang100 = false;
-
+//volumen
 int lastVolumeValue;
-
-
 
 void do_init()
 {
@@ -38,7 +28,6 @@ void do_init()
   pinMode(TRAINING_CANCEL_PIN, INPUT);
   pinMode(TRAINING_CONTROL_PIN, INPUT);
   pinMode(HALL_SENSOR_PIN, INPUT);
-
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
   pinMode(BLUE_LED_PIN, OUTPUT);
@@ -47,7 +36,6 @@ void do_init()
   ledOn();
 
   lcd.begin(LED_NUMBER_OF_COLUMNS, LED_NUMBER_OF_ROWS);
-
   lcd.setRGB(RGB_HIGH, RGB_HIGH, RGB_LOW);
 
   initBT();
@@ -60,9 +48,6 @@ void do_init()
   previousTime = millis();
 }
 
-
-
-
 void setup()
 {
   do_init();
@@ -72,8 +57,3 @@ void loop()
 {
   state_machine();
 }
-
-
-
-
-//////////// IMPLEMENTACION FUNCIONES STATE MACHINE

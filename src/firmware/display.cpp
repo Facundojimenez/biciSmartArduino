@@ -91,6 +91,9 @@ void offLed()
 
 void turnOnBuzzer()
 {
+  if(!setTraining.enableBuzzer)
+    return;
+    
   float percent;
   if (setTraining.setTime != 0)
   {

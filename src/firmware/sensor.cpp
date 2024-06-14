@@ -94,7 +94,11 @@ void checkTrainingBluetoothInterface()
     {
       String consoleCommand = BT.readString();
       //int dynamicMusic;
-      sscanf(consoleCommand.c_str(), "%d %d %d", &(setTraining.setTime), &(setTraining.setMeters), &(setTraining.dynamicMusic));
+      //sscanf(consoleCommand.c_str(), "%d %d %d", &(setTraining.setTime), &(setTraining.setMeters), &(setTraining.dynamicMusic));
+      sscanf(consoleCommand.c_str(), "%d %d %d %d %d", &(setTraining.setTime), &(setTraining.setMeters), 
+                                                      &(setTraining.dynamicMusic), &(setTraining.enableBuzzer),
+                                                      &(setTraining.enableMusicButtons));
+      setTraining.personalizedTraining = true;
       // if ((setTraining.setMeters != 0 && setTraining.setTime != 0) || (setTraining.setMeters == 0 && setTraining.setTime == 0)) 
       // {
       //   Serial.println("Entrenamiento Invalido");
@@ -112,7 +116,17 @@ void checkTrainingBluetoothInterface()
     }
   } else 
   {
-    currentEvent = EVENT_CONTINUE;
+    if (BT.available() > 0) 
+    {
+      String consoleCommand = BT.readString();
+      if(consoleCommand == "PAUSE/RESUME")
+        currentEvent = EVENT_TRAINING_BUTTON;
+      if(consoleCommand == "CANCEL")
+        currentEvent = EVENT_TRAINING_CANCELLED;
+    }else
+    {
+      currentEvent = EVENT_CONTINUE;
+    } 
   }
 }
 

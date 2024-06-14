@@ -25,9 +25,12 @@
 //updateTime y updateDistance
 #define ONE_SEC 1000
 //entrenamiento por default
-#define DEFAULTTIME 5
+#define DEFAULTTIME 120
 #define DEFAULTMETERS 0
-#define DEFAULTDYNAMICMUSIC 1
+#define DEFAULTDYNAMICMUSIC 0
+#define DEFAULTBUZZER 1
+#define DEFAULTMUSCIBUTTONS 0
+#define DEFAULTTRAININGTYPE 0
 //getEvent
 #define MAX_SENSOR_LOOP_TIME 10
 //enviar resumen
@@ -106,6 +109,9 @@ struct tTraining
     unsigned int setTime;
     unsigned int setMeters;
     bool dynamicMusic;
+    bool enableBuzzer;
+    bool enableMusicButtons;
+    bool personalizedTraining;
 };
 
 struct tSummary
@@ -125,6 +131,7 @@ void ledOn();
 void offLed();
 void sendMusicComand(const char *comand);
 void sendSummary();
+void sendTrainningState(const char* comand);
 void turnOnBuzzer();
 void turnOnDynamicMusic();
 void updateDistance();

@@ -16,6 +16,9 @@ void defaultTraining()
   setTraining.setTime = DEFAULTTIME;
   setTraining.setMeters = DEFAULTMETERS;
   setTraining.dynamicMusic = DEFAULTDYNAMICMUSIC;
+  setTraining.enableBuzzer = DEFAULTBUZZER;
+  setTraining.enableMusicButtons = DEFAULTMUSCIBUTTONS;
+  setTraining.personalizedTraining = DEFAULTTRAININGTYPE;
   trainingReceived = true;
   lctMetersCalculated = millis();
   lastTimeCalculatedTime = millis();
@@ -46,6 +49,7 @@ void resetTraining()
 void resumeTraining()
 {
   showTrainingState("Resumed");
+  sendTrainningState("RESUMED");
   lastTimeCalculatedTime = millis();
   lctMetersCalculated = millis();
   lcd.clear();
@@ -72,6 +76,7 @@ void trainingFinished(const char *mensaje)
 void startTraining() 
 {
   showTrainingState("Started");
+  sendTrainningState("STARTED");
   lctMetersCalculated = millis();
   lastTimeCalculatedTime = millis();
   lcd.clear();

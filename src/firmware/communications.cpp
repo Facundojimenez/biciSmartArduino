@@ -10,7 +10,7 @@ void initBT()
 
 void sendMusicComand(const char *command)
 {
-  if (!setTraining.dynamicMusic)
+  if (!setTraining.dynamicMusic && setTraining.enableMusicButtons)
   {
     Serial.print("Enviando Comando: ");
     Serial.println(command);
@@ -29,13 +29,19 @@ void sendSummary()
   Serial.print("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 
-  BT.println("Ended");
+  BT.println("ENDED");
   BT.print("Tiempo: ");
   BT.print((summary.timeDone));
   BT.print("\nMetros Recorridos: ");
   BT.print(summary.metersDone);
   BT.print("\nVelocidad Media: ");
   BT.println(summary.averageSpeed);
+}
+
+void sendTrainningState(const char* comand)
+{
+  if(setTraining.personalizedTraining)
+    BT.println(comand);
 }
 
 void turnOnDynamicMusic()
@@ -65,7 +71,6 @@ void turnOnDynamicMusic()
       if (previousIntensity != HIGHINTENSITY)
       {
         Serial.println("Motivational Music");
-
         BT.println("Motivational Music");
         previousIntensity = HIGHINTENSITY;
       }

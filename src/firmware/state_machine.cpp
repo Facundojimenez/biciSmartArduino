@@ -35,6 +35,7 @@ void state_machine()
       break;
     case EVENT_CONTINUE:
       showTrainingState("Waiting to Start");
+      sendTrainningState("WAITTING");
       currentState = STATE_READY_FOR_TRAINING;
       break;
     default:
@@ -50,6 +51,7 @@ void state_machine()
       break;
     case EVENT_TRAINING_BUTTON:
       showTrainingState("Paused");
+      sendTrainningState("PAUSED");
       currentState = STATE_PAUSED_TRAINING;
       break;
     case EVENT_TRAINING_CANCELLED:

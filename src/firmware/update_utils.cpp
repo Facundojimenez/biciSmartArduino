@@ -22,6 +22,6 @@ void updateVolume()
 {
   Serial.print("Asignando Volumen a: ");
   Serial.println(lastVolumeValue);
-  BT.print("Vol ");
+  BT.print("VOL ");
   BT.println(lastVolumeValue);
 }

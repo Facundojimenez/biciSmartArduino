@@ -29,13 +29,29 @@ void sendSummary()
   Serial.print("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 
-  BT.println("ENDED");
-  BT.print("Tiempo: ");
-  BT.print((summary.timeDone));
-  BT.print("\nMetros Recorridos: ");
-  BT.print(summary.metersDone);
-  BT.print("\nVelocidad Media: ");
-  BT.println(summary.averageSpeed);
+
+
+  char bufferMensaje[100];
+  
+  //Se utilizan cadenas de caracteres auxiliares para poder printear los numeros decimales, porque sprintf() no soporta flotantes en Arduino 
+  char time_str[6];
+  char meters_str[6];
+  char avg_speed_str[6];
+
+	dtostrf(summary.timeDone, 2, 2, time_str);
+  dtostrf(summary.metersDone, 2, 2, meters_str);
+  dtostrf(summary.averageSpeed, 2, 2, avg_speed_str);
+  
+  sprintf(bufferMensaje, "ENDED|Tiempo: %s|Metros Recorridos: %s|Velocidad Media: %s", time_str, meters_str, avg_speed_str);
+  BT.println(bufferMensaje);
+
+  // BT.println("ENDED");
+  // BT.print("Tiempo: ");
+  // BT.print((summary.timeDone));
+  // BT.print("\nMetros Recorridos: ");
+  // BT.print(summary.metersDone);
+  // BT.print("\nVelocidad Media: ");
+  // BT.println(summary.averageSpeed);
 }
 
 void sendTrainningState(const char* comand)

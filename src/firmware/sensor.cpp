@@ -7,9 +7,13 @@ volatile unsigned long currentActivationTime = 0;
 volatile unsigned long newacttime  = 0;
 volatile unsigned long timediff = 0;
 bool acabaDePedalear = false;
+float lowSpeed;
+float highSpeed;
+//Serial serial;
 
 void checkSpeedSensor() 
 {
+
   newacttime = millis();
   if (newacttime - lastActivationTime > BIKE_IS_STOPPED_TIME) 
   {
@@ -137,7 +141,7 @@ void checkTrainingBluetoothInterface()
     if (BT.available() > 0) 
     {
       String consoleCommand = BT.readString();
-      if(consoleCommand == "PAUSE/RESUME")
+      if(consoleCommand == "RESUME" || consoleCommand == "PAUSE")
         currentEvent = EVENT_TRAINING_BUTTON;
       if(consoleCommand == "CANCEL")
         currentEvent = EVENT_TRAINING_CANCELLED;
@@ -207,11 +211,14 @@ void checkVolumeSensor()
 
   int value = analogRead(VOLUME_SENSOR_PIN);
   int currentVolumeValue = map(value, MIN_POT_VALUE, MAX_POT_VALUE, MIN_VOLUME, MAX_VOLUME);
+  Serial.print("vol read:" );
+  Serial.println(currentVolumeValue);
 
   if (currentVolumeValue != lastVolumeValue) 
   {
     currentEvent = EVENT_VOLUME_CHANGE;
     lastVolumeValue = currentVolumeValue;
+    
   } else 
   {
     currentEvent = EVENT_CONTINUE;

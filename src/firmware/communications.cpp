@@ -10,8 +10,8 @@ void initBT()
 
 void sendMusicComand(const char *command)
 {
-  if (setTraining.enableMusicButtons)
-  {
+  //if (setTraining.enableMusicButtons)
+ // {
     if(setTraining.dynamicMusic && strcmp(command, "NEXT") == 0)
       return;
 
@@ -19,7 +19,7 @@ void sendMusicComand(const char *command)
     Serial.println(command);
 
     BT.println(command);
-  }
+//  }
 }
 
 void sendSummary()

@@ -188,8 +188,8 @@ extern unsigned long lctMetersCalculated;
 extern unsigned long lastTimeCalculatedTime;
 //entrenamiento
 extern bool trainingReceived;
-float lowSpeed;
-float highSpeed;
+extern float lowSpeed;
+extern float highSpeed;
 //resumen
 extern bool summarySent;
 extern bool lctWaitingSummaryConfirmation;

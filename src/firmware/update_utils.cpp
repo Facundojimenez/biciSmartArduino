@@ -1,6 +1,9 @@
 #include<Arduino.h>
 #include "definitions.h"
 
+float volumeTimeout;
+float previousVolumeTimeout;
+
 void updateDistance() 
 {
   unsigned long currentTime = millis();
@@ -22,6 +25,11 @@ void updateVolume()
 {
   Serial.print("Asignando Volumen a: ");
   Serial.println(lastVolumeValue);
+  volumeTimeout = millis();
+  if (volumeTimeout - lastActivationTime > 1000)
+  {
   BT.print("VOL ");
   BT.println(lastVolumeValue);
+  }
+  lastActivationTime = volumeTimeout;
 }

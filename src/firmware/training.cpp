@@ -22,6 +22,8 @@ void defaultTraining()
   trainingReceived = true;
   lctMetersCalculated = millis();
   lastTimeCalculatedTime = millis();
+  lowSpeed = LOW_SPEED_MEDIA;
+  highSpeed = HIGH_SPEED_MEDIA;
 }
 
 void resetTraining()

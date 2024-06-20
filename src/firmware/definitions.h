@@ -20,8 +20,14 @@
 #define BLUETOOTH_TXD 11
 #define BLUETOOTH_RXD 10
 //intensidad y musica dinamica
-#define LOW_SPEED 4
-#define HIGH_SPEED 8
+#define LOW_SPEED_LOW 2
+#define HIGH_SPEED_LOW 6
+
+#define LOW_SPEED_MEDIA 3
+#define HIGH_SPEED_MEDIA 7
+
+#define LOW_SPEED_HIGH 4
+#define HIGH_SPEED_HIGH 8
 //updateTime y updateDistance
 #define ONE_SEC 1000
 //entrenamiento por default
@@ -112,6 +118,7 @@ struct tTraining
     bool enableBuzzer;
     bool enableMusicButtons;
     bool personalizedTraining;
+    int intensity;
 };
 
 struct tSummary
@@ -181,6 +188,8 @@ extern unsigned long lctMetersCalculated;
 extern unsigned long lastTimeCalculatedTime;
 //entrenamiento
 extern bool trainingReceived;
+float lowSpeed;
+float highSpeed;
 //resumen
 extern bool summarySent;
 extern bool lctWaitingSummaryConfirmation;

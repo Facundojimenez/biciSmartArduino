@@ -67,7 +67,7 @@ void turnOnDynamicMusic()
 {
   if (setTraining.dynamicMusic)
   {
-    if (speed_MS <= LOW_SPEED)
+    if (speed_MS <= lowSpeed)
     {
       if (previousIntensity != LOWINTENSITY)
       {
@@ -76,7 +76,7 @@ void turnOnDynamicMusic()
         previousIntensity = LOWINTENSITY;
       }
     }
-    else if (speed_MS < HIGH_SPEED)
+    else if (speed_MS < highSpeed)
     {
       if (previousIntensity != MIDINTENSITY)
       {

@@ -37,11 +37,11 @@ void showTrainingState(const char *event)
 
 void turnOnIntensityLed()
 {
-  if (speed_MS <= LOW_SPEED)
+  if (speed_MS <= lowSpeed)
   {
     ledLowSpeed();
   }
-  else if (speed_MS < HIGH_SPEED)
+  else if (speed_MS < highSpeed)
   {
     ledNormalSpeed();
   }

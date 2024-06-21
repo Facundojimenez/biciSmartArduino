@@ -99,9 +99,9 @@ void checkTrainingBluetoothInterface()
       String consoleCommand = BT.readString();
       //int dynamicMusic;
       //sscanf(consoleCommand.c_str(), "%d %d %d", &(setTraining.setTime), &(setTraining.setMeters), &(setTraining.dynamicMusic));
-      sscanf(consoleCommand.c_str(), "%d %d %d %d %d %d", &(setTraining.setTime), &(setTraining.setMeters), 
+      sscanf(consoleCommand.c_str(), "%d %d %d %d %d", &(setTraining.setTime), &(setTraining.setMeters), 
                                                       &(setTraining.dynamicMusic), &(setTraining.enableBuzzer),
-                                                      &(setTraining.enableMusicButtons), &(setTraining.intensity));
+                                                     &(setTraining.intensity));
       setTraining.personalizedTraining = true;
 
       switch (setTraining.intensity)
@@ -156,21 +156,7 @@ void checkSummaryBluetooth()
 {
   if (summarySent) 
   {
-    // unsigned long currentTime = millis();
-    // if ((currentTime - lctWaitingSummaryConfirmation) < MAX_TIME_WAITTING_CONFIRMATION) 
-    // {
-    //   if (Serial.available() > 0) 
-    //   {
-    //     String consoleCommand = Serial.readString();
-    //     if (strcmp(consoleCommand.c_str(), "OK") == 0) 
-    //     {
-    //       currentEvent = EVENT_TRAINING_RESTARTED;
-    //     }
-    //   }
-    // } else 
-    // {
-    //   currentEvent = EVENT_TRAINING_RESTARTED;
-    // }
+
     currentEvent = EVENT_TRAINING_RESTARTED;
   } else 
   {

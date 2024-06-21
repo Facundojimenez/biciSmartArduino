@@ -16,7 +16,6 @@ void showSpeed()
     lcd.print("speed(M/S)     ");
     lcd.setCursor(COLUMN_11, ROW_1);
     lcd.print(speed_MS);
-    // Serial.println(speed_MS);
 
     previousTimeLcd = currentTimeLcd;
   }

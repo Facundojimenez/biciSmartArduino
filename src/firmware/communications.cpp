@@ -10,16 +10,14 @@ void initBT()
 
 void sendMusicComand(const char *command)
 {
-  //if (setTraining.enableMusicButtons)
- // {
-    if(setTraining.dynamicMusic && strcmp(command, "NEXT") == 0)
-      return;
 
-    Serial.print("Enviando Comando: ");
-    Serial.println(command);
+  if (setTraining.dynamicMusic && strcmp(command, "NEXT") == 0)
+    return;
 
-    BT.println(command);
-//  }
+  Serial.print("Enviando Comando: ");
+  Serial.println(command);
+
+  BT.println(command);
 }
 
 void sendSummary()
@@ -32,24 +30,6 @@ void sendSummary()
   Serial.print("Velocidad Media: ");
   Serial.println(summary.averageSpeed);
 
-
-
-  char bufferMensaje[100];
-  
-  //Se utilizan cadenas de caracteres auxiliares para poder printear los numeros decimales, porque sprintf() no soporta flotantes en Arduino 
-  char time_str[6];
-  char meters_str[6];
-  char avg_speed_str[6];
-
-	dtostrf(summary.timeDone, 2, 2, time_str);
-  dtostrf(summary.metersDone, 2, 2, meters_str);
-  dtostrf(summary.averageSpeed, 2, 2, avg_speed_str);
-  
- // sprintf(bufferMensaje, "ENDED|Tiempo: %s|Metros Recorridos: %s|Velocidad Media: %s", time_str, meters_str, avg_speed_str);
-  //BT.println(bufferMensaje);
-
-  
-
   BT.print("ENDED|");
   BT.print("Tiempo: ");
   BT.print((summary.timeDone));
@@ -59,9 +39,9 @@ void sendSummary()
   BT.println(summary.averageSpeed);
 }
 
-void sendTrainningState(const char* comand)
+void sendTrainningState(const char *comand)
 {
-  if(setTraining.personalizedTraining)
+  if (setTraining.personalizedTraining)
     BT.println(comand);
 }
 

@@ -116,7 +116,7 @@ struct tTraining
     unsigned int setMeters;
     bool dynamicMusic;
     bool enableBuzzer;
-    bool enableMusicButtons;
+
     bool personalizedTraining;
     int intensity;
 };

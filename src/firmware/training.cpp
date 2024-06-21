@@ -5,10 +5,10 @@ tTraining setTraining;
 intensity_t previousIntensity = NOINTENSITY;
 tSummary summary = { 0, 0, 0 };
 bool trainingReceived;
-//updateTime y updateDistance
+
 unsigned long lctMetersCalculated;
 unsigned long lastTimeCalculatedTime;
-//bool lctWaitingSummaryConfirmation;
+
 bool summarySent;
 
 void defaultTraining() 
@@ -17,7 +17,7 @@ void defaultTraining()
   setTraining.setMeters = DEFAULTMETERS;
   setTraining.dynamicMusic = DEFAULTDYNAMICMUSIC;
   setTraining.enableBuzzer = DEFAULTBUZZER;
-  setTraining.enableMusicButtons = DEFAULTMUSCIBUTTONS;
+ 
   setTraining.personalizedTraining = DEFAULTTRAININGTYPE;
   trainingReceived = true;
   lctMetersCalculated = millis();
@@ -29,7 +29,7 @@ void defaultTraining()
 void resetTraining()
 {
   showTrainingState("Restarting");
-  //lctWaitingSummaryConfirmation = 0;
+
   previousIntensity = NOINTENSITY;
   trainingReceived = false;
   summarySent = false;
@@ -71,7 +71,7 @@ void trainingFinished(const char *mensaje)
 {
   showTrainingState(mensaje);
   sendSummary();
-  //lctWaitingSummaryConfirmation = millis();
+
   summarySent = true;
 }
 

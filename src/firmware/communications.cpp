@@ -45,16 +45,18 @@ void sendSummary()
   dtostrf(summary.metersDone, 2, 2, meters_str);
   dtostrf(summary.averageSpeed, 2, 2, avg_speed_str);
   
-  sprintf(bufferMensaje, "ENDED|Tiempo: %s|Metros Recorridos: %s|Velocidad Media: %s", time_str, meters_str, avg_speed_str);
-  BT.println(bufferMensaje);
+ // sprintf(bufferMensaje, "ENDED|Tiempo: %s|Metros Recorridos: %s|Velocidad Media: %s", time_str, meters_str, avg_speed_str);
+  //BT.println(bufferMensaje);
 
-  // BT.println("ENDED");
-  // BT.print("Tiempo: ");
-  // BT.print((summary.timeDone));
-  // BT.print("\nMetros Recorridos: ");
-  // BT.print(summary.metersDone);
-  // BT.print("\nVelocidad Media: ");
-  // BT.println(summary.averageSpeed);
+  
+
+  BT.print("ENDED|");
+  BT.print("Tiempo: ");
+  BT.print((summary.timeDone));
+  BT.print("\nMetros Recorridos: ");
+  BT.print(summary.metersDone);
+  BT.print("\nVelocidad Media: ");
+  BT.println(summary.averageSpeed);
 }
 
 void sendTrainningState(const char* comand)

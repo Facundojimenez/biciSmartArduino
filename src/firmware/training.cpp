@@ -34,7 +34,7 @@ void resetTraining()
   trainingReceived = false;
   summarySent = false;
 
-  // lcd.setRGB(RGB_LOW, RGB_LOW, RGB_HIGH);
+  
   lcd.setRGB(RGB_HIGH, RGB_HIGH, RGB_LOW);
 
   setTraining.setMeters = 0;
